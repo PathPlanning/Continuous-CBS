@@ -6,7 +6,6 @@
 #define CN_STOP_CARDINAL 1
 #define CN_TIMELIMIT     60 // in seconds
 #define CN_AGENT_SIZE    sqrt(2.0)/4.0
-#define CN_K             4
 #define CN_DELTA         0.1
 #define CN_OBSTL         1
 #define CN_EPSILON       1e-8

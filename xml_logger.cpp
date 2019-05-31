@@ -110,3 +110,27 @@ void XML_logger::write_to_log_path(const Solution &solution)
         }
     }
 }
+
+void XML_logger::write_to_log_edges(const Graph &graph)
+{
+    tinyxml2::XMLElement *element=doc->FirstChildElement(CNS_TAG_ROOT);
+    element = element->FirstChildElement(CNS_TAG_LOG);
+    tinyxml2::XMLElement *edge;
+    for(int i = 0; i < graph.get_nodes_size(); i++)
+    {
+        auto e1 = graph.get_gnode(i);
+        for(auto k:e1.neighbors)
+        {
+            if(k < i)
+                continue;
+            auto e2 = graph.get_gnode(k);
+            edge = doc->NewElement("edge");
+            edge->SetAttribute(CNS_TAG_ATTR_SX, e1.i);
+            edge->SetAttribute(CNS_TAG_ATTR_SY, e1.j);
+            edge->SetAttribute(CNS_TAG_ATTR_FX, e2.i);
+            edge->SetAttribute(CNS_TAG_ATTR_FY, e2.j);
+            element->LinkEndChild(edge);
+        }
+    }
+
+}

@@ -3,7 +3,7 @@
 #include "const.h"
 #include "tinyxml2.h"
 #include "structs.h"
-#include "map.h"
+#include "graph.h"
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -22,6 +22,7 @@ public:
     void save_log();
     void write_to_log_summary(const Solution &solution);
     void write_to_log_path(const Solution &solution);
+    void write_to_log_edges(const Graph &graph);
 
 };
 

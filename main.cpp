@@ -1,5 +1,4 @@
 #include <iostream>
-#include "map.h"
 #include "task.h"
 #include "cbs.h"
 #include "xml_logger.h"
@@ -10,9 +9,8 @@ int main(int argc, const char *argv[])
 
     if(argc > 2)
     {
-        Map map = Map();
-        map.get_map(argv[1]);
-        map.generate_moves();
+        Graph map = Graph();
+        map.get_graph(argv[1]);
         Task task;
         task.get_task(argv[2]);
         CBS cbs;
@@ -24,11 +22,8 @@ int main(int argc, const char *argv[])
         logger.get_log(argv[2]);
         logger.write_to_log_summary(solution);
         logger.write_to_log_path(solution);
+        logger.write_to_log_edges(map);
         logger.save_log();
-    }
-    else
-    {
-        std::cout<<"Error! Not enough input parameters are specified!\n";
     }
     return 0;
 }

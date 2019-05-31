@@ -9,24 +9,33 @@
 
 struct Agent
 {
-    int start_i, start_j;
-    int goal_i, goal_j;
-    int id;
+    int start_id, goal_id, id;
     double size;
-    Agent(int s_i = -1, int s_j = -1, int g_i = -1, int g_j = -1, int _id = -1)
-        :start_i(s_i), start_j(s_j), goal_i(g_i), goal_j(g_j), id(_id) {}
+    Agent(int s_id = -1, int g_id = -1, int _id = -1)
+        :start_id(s_id), goal_id(g_id), id(_id) {}
+};
+
+struct gNode
+{
+    double i;
+    double j;
+    std::vector<int> neighbors;
+    gNode(double i_ = -1, double j_ = -1):i(i_), j(j_) { neighbors.clear(); }
+    ~gNode() { neighbors.clear(); }
 };
 
 struct Node
 {
-    int     i, j;
+    double  i, j;
     double  f, g;
+    int id;
     Node*   parent;
     std::pair<double, double> interval;
 
-    Node(int _i = -1, int _j = -1, double _f = -1, double _g = -1, Node* _parent = nullptr, double begin = -1, double end = -1)
+    Node(double _i = -1, double _j = -1, double _f = -1, double _g = -1, Node* _parent = nullptr, double begin = -1, double end = -1)
         :i(_i), j(_j), f(_f), g(_g), parent(_parent), interval(std::make_pair(begin, end)) {}
-
+    Node(const gNode &gnode, double _f = -1, double _g = -1, Node* _parent = nullptr, double begin = -1, double end = -1)
+    :i(gnode.i), j(gnode.j), f(_f), g(_g), parent(_parent), interval(std::make_pair(begin, end)) {}
     ~Node() { parent = nullptr; }
 };
 
@@ -52,9 +61,13 @@ struct Constraint
 {
     int agent;
     double t1, t2; // prohibited to start moving from (i1, j1) to (i2, j2) during interval (t1, t2)
-    int i1, j1, i2, j2; // in case of node constraint i1==i2, j1==j2.
-    Constraint(int _agent = -1, double _t1 = -1, double _t2 = -1, int _i1 = -1, int _j1 = -1, int _i2 = -1, int _j2 = -1)
-        : agent(_agent), t1(_t1), t2(_t2), i1(_i1), j1(_j1), i2(_i2), j2(_j2){}
+    double i1, j1, i2, j2; // in case of node constraint i1==i2, j1==j2.
+    int id1, id2;
+    int num;
+    int agent2, m2id1, m2id2;
+    double m2t1, m2t2, m2i1, m2j1, m2i2, m2j2;
+    Constraint(int _agent = -1, double _t1 = -1, double _t2 = -1, double _i1 = -1, double _j1 = -1, double _i2 = -1, double _j2 = -1, int _id1 = -1, int _id2 = -1)
+        : agent(_agent), t1(_t1), t2(_t2), i1(_i1), j1(_j1), i2(_i2), j2(_j2), id1(_id1), id2(_id2){}
     friend std::ostream& operator <<(std::ostream& os, const Constraint& con)
     {
         os<<con.agent<<" "<<con.t1<<" "<<con.t2<<" "<<con.i1<<" "<<con.j1<<" "<<con.i2<<" "<<con.j2<<"\n";
@@ -65,22 +78,18 @@ struct Constraint
 struct Move
 {
     double t1, t2; // t2 is required for wait action
-    int i1, j1, i2, j2; // in case of wait action i1==i2, j1==j2
-    Move(double _t1 = -1, double _t2 = -1, int _i1 = -1, int _j1 = -1, int _i2 = -1, int _j2 = -1)
-        : t1(_t1), t2(_t2), i1(_i1), j1(_j1), i2(_i2), j2(_j2) {}
-    Move(const Move& move) : t1(move.t1), t2(move.t2), i1(move.i1), j1(move.j1), i2(move.i2), j2(move.j2) {}
-    Move(const Constraint& con) : t1(con.t1), t2(con.t2), i1(con.i1), j1(con.j1), i2(con.i2), j2(con.j2) {}
-    Move(Node a, Node b) : t1(a.g), t2(b.g), i1(a.i), j1(a.j), i2(b.i), j2(b.j) {}
+    double i1, j1, i2, j2; // in case of wait action i1==i2, j1==j2
+    int id1, id2;
+    Move(double _t1 = -1, double _t2 = -1, double _i1 = -1, double _j1 = -1, double _i2 = -1, double _j2 = -1, int _id1 = -1, int _id2 = -1)
+        : t1(_t1), t2(_t2), i1(_i1), j1(_j1), i2(_i2), j2(_j2), id1(_id1), id2(_id2) {}
+    Move(const Move& move) : t1(move.t1), t2(move.t2), i1(move.i1), j1(move.j1), i2(move.i2), j2(move.j2), id1(move.id1), id2(move.id2) {}
+    Move(const Constraint& con) : t1(con.t1), t2(con.t2), i1(con.i1), j1(con.j1), i2(con.i2), j2(con.j2), id1(con.id1), id2(con.id2) {}
+    Move(Node a, Node b) : t1(a.g), t2(b.g), i1(a.i), j1(a.j), i2(b.i), j2(b.j), id1(a.id), id2(b.id) {}
     bool operator <(const Move& other) const
     {
-        if     (i1 < other.i1) return true;
-        else if(i1 > other.i1) return false;
-        else if(j1 < other.j1) return true;
-        else if(j1 > other.j1) return false;
-        else if(i2 < other.i2) return true;
-        else if(i2 > other.i2) return false;
-        else if(j2 < other.j2) return true;
-        else                   return false;
+        if     (id1 < other.id1) return true;
+        else if(id1 == other.id1 && id2 < other.id2) return true;
+        else return false;
     }
 };
 
@@ -107,6 +116,7 @@ struct CBS_Node
     std::vector<Path> paths;
     CBS_Node* parent;
     Constraint constraint;
+    Constraint altconstraint;
     long long int id;
     double cost;
     int cons_num;
@@ -263,6 +273,7 @@ class Vector2D {
     inline void operator +=(const Vector2D &vec) { i += vec.i; j += vec.j; }
     inline void operator -=(const Vector2D &vec) { i -= vec.i; j -= vec.j; }
 };
+
 
 class Point {
 public:

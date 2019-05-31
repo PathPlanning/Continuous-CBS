@@ -5,22 +5,22 @@ CONFIG -= qt
 TARGET = CBS_SIPP
 SOURCES += main.cpp \
     cbs.cpp \
-    config.cpp \
-    map.cpp \
-    tinyxml2.cpp \
-    task.cpp \
+    graph.cpp \
+    heuristic.cpp \
     sipp.cpp \
-    xml_logger.cpp \
-    heuristic.cpp
+    task.cpp \
+    tinyxml2.cpp \
+    xml_logger.cpp
+
 
 HEADERS += \
-    config.h \
-    structs.h \
     cbs.h \
-    map.h \
-    tinyxml2.h \
-    task.h \
     const.h \
+    graph.h \
+    heuristic.h \
     sipp.h \
-    xml_logger.h \
-    heuristic.h
+    structs.h \
+    task.h \
+    tinyxml2.h \
+    xml_logger.h
+

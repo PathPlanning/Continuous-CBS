@@ -32,17 +32,12 @@ bool Task::get_task(const char *FileName)
         std::transform(value.begin(), value.end(), value.begin(), ::tolower);
         Agent a;
         stream.clear();
-        stream << agent->Attribute(CNS_TAG_START_I);
-        stream >> a.start_i;
+        stream << agent->Attribute("start_id");
+        stream >> a.start_id;
         stream.clear();
-        stream << agent->Attribute(CNS_TAG_START_J);
-        stream >> a.start_j;
+        stream << agent->Attribute("goal_id");
+        stream >> a.goal_id;
         stream.clear();
-        stream << agent->Attribute(CNS_TAG_GOAL_I);
-        stream >> a.goal_i;
-        stream.clear();
-        stream << agent->Attribute(CNS_TAG_GOAL_J);
-        stream >> a.goal_j;
         a.id = agents.size();
         agents.push_back(a);
 
