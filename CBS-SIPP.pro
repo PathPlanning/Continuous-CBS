@@ -2,7 +2,7 @@ TEMPLATE = app
 CONFIG += console c++11
 CONFIG -= app_bundle
 CONFIG -= qt
-TARGET = CBS_SIPP
+TARGET = C-CBS
 SOURCES += main.cpp \
     cbs.cpp \
     config.cpp \
