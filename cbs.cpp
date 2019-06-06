@@ -212,15 +212,12 @@ Solution CBS::find_solution(const Graph &map, const Task &task)
             node.look_for_cardinal = false;
         tree.pop_front();
         auto paths = get_paths(&node, task.get_agents_size());
-        LARGE_INTEGER begin, end, freq;
-        QueryPerformanceCounter(&begin);
-        QueryPerformanceFrequency(&freq);
+        auto begin = std::chrono::high_resolution_clock::now();
         if(node.look_for_cardinal)
             conflicts = get_all_conflicts(paths);
         else
             conflict = check_conflicts(paths, conflicting_agents, conflicting_pairs);
-        QueryPerformanceCounter(&end);
-        time += static_cast<double long>(end.QuadPart-begin.QuadPart) / freq.QuadPart;
+        time += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - begin).count();
         if((node.look_for_cardinal && conflicts.empty()) || (!node.look_for_cardinal && conflict.agent1 < 0))
             break; //i.e. no conflicts => solution found
         expanded++;
