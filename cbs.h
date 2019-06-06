@@ -5,7 +5,6 @@
 #include "task.h"
 #include "sipp.h"
 #include "heuristic.h"
-#include <windows.h>
 
 class CBS
 {
