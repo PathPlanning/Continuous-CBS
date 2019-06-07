@@ -1,0 +1,31 @@
+<?xml version="1.0" ?>
+<root>
+    <agent start_id="0" goal_id="2"/>
+    <agent start_id="1" goal_id="0"/>
+    <log>
+        <summary time="0.0060010000000000003" flowtime="16.01665382639197" makespan="8.8055512754639906"/>
+        <agent number="0">
+            <path number="0" length="7.2111025509279782">
+                <hplevel>
+                    <section number="0" start.x="1" start.y="1" finish.x="1" finish.y="1" length="0"/>
+                    <section number="1" start.x="1" start.y="1" finish.x="3" finish.y="4" length="3.6055512754639891"/>
+                    <section number="2" start.x="3" start.y="4" finish.x="5" finish.y="1" length="3.6055512754639891"/>
+                </hplevel>
+            </path>
+        </agent>
+        <agent number="1">
+            <path number="1" length="8.8055512754639906">
+                <hplevel>
+                    <section number="0" start.x="3" start.y="4" finish.x="3" finish.y="4" length="0"/>
+                    <section number="1" start.x="3" start.y="4" finish.x="5" finish.y="4" length="2"/>
+                    <section number="2" start.x="5" start.y="4" finish.x="5" finish.y="4" length="1.2000000000000011"/>
+                    <section number="3" start.x="5" start.y="4" finish.x="3" finish.y="4" length="2"/>
+                    <section number="4" start.x="3" start.y="4" finish.x="1" finish.y="1" length="3.6055512754639896"/>
+                </hplevel>
+            </path>
+        </agent>
+        <edge start.x="1" start.y="1" finish.x="4" finish.y="3"/>
+        <edge start.x="4" start.y="3" finish.x="1" finish.y="5"/>
+        <edge start.x="4" start.y="3" finish.x="4" finish.y="5"/>
+    </log>
+</root>
