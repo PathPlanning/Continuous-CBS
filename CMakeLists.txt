@@ -21,7 +21,7 @@ set( HEADER_FILES
      const.h  
      tinyxml2.h
      xml_logger.h 
-     graph.h 
+     map.h 
      heuristic.h 
      sipp.h 
      task.h
