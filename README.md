@@ -1,7 +1,7 @@
 # Continuous-CBS
 Continuous CBS - a modification of conflict based search algorithm, that allows to perform actions of any arbitrary duration.
 
-This branch is a version of Continiuous CBS that uses regular graphs instead of grids for environment description. It requires another format of input files. Instead of grid, input map-file contains a description of graph in GraphML notation. The task file should contaion the ID's of nodes which correspond to the start and goal locations of the agents. More inforamtion about GraphML you can find at http://graphml.graphdrawing.org/
+This branch is a version of Continiuous CBS that uses regular graphs instead of grids for environment description. It requires another format of input files. Instead of grid, input map-file contains a description of graph in GraphML notation. The task file should contain the IDs of nodes which correspond to the start and goal locations of the agents. More information about GraphML you can find at http://graphml.graphdrawing.org/
 
 ## Getting Started
 
