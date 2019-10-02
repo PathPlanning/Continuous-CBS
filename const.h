@@ -1,13 +1,12 @@
 #ifndef CONST_H
 #define CONST_H
 
-#define CN_CARDINAL      1
-#define CN_HISTORY       1
-#define CN_STOP_CARDINAL 1
+#define CN_NO_CARDINAL   1
 #define CN_TIMELIMIT     60 // in seconds
 #define CN_AGENT_SIZE    sqrt(2.0)/4.0
-#define CN_K             4
+#define CN_K             3
 #define CN_DELTA         0.1
+#define CN_FOCAL_W       1.25
 #define CN_OBSTL         1
 #define CN_EPSILON       1e-8
 #define CN_INFINITY		 1e+8
