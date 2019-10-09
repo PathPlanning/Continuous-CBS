@@ -19,7 +19,7 @@ bool CBS::init_root(const Map &map, const Task &task)
     }
     root.low_level_expanded = 0;
     root.parent = nullptr;
-    root.cons_num = 0;
+    root.cons_num.resize(task.get_agents_size(),0);
     root.id = 1;
     auto conflicts = get_all_conflicts(root.paths, -1);
     for(auto conflict: conflicts)
@@ -133,71 +133,48 @@ Constraint CBS::get_constraint(int agent, Move move1, Move move2)
 {
     if(move1.i1 == move1.i2 && move1.j1 == move1.j2)
         return get_wait_constraint(agent, move1, move2);
-    double begin(move1.t1), startTimeA(move1.t1), endTimeA(move1.t2), startTimeB(move2.t1), endTimeB(move2.t2);
-    Vector2D A(move1.i1, move1.j1);
-    Vector2D B(move2.i1, move2.j1);
-    Vector2D VA((move1.i2 - move1.i1)/(move1.t2 - move1.t1), (move1.j2 - move1.j1)/(move1.t2 - move1.t1));
-    Vector2D VB((move2.i2 - move2.i1)/(move2.t2 - move2.t1), (move2.j2 - move2.j1)/(move2.t2 - move2.t1));
-    while(startTimeA < endTimeB)
+    double startTimeA(move1.t1), endTimeA(move1.t2);
+    Vector2D A(move1.i1, move1.j1), A2(move1.i2, move1.j2), B(move2.i1, move2.j1), B2(move2.i2, move2.j2);
+    if(move2.t2 == CN_INFINITY)
+        return Constraint(agent, move1.t1, CN_INFINITY, move1.i1, move1.j1, move1.i2, move1.j2);
+    double delta = move2.t2 - move1.t1;
+    while(delta > CN_PRECISION/2.0)
     {
-        A = Vector2D(move1.i1, move1.j1);
-        startTimeA = move1.t1;
-        endTimeA = move1.t2;
-        if(startTimeA + CN_EPSILON > endTimeB)
+        if(check_conflict(move1, move2))
         {
-            move1.t2 = move1.t2 - (move1.t1 - endTimeB);
-            move1.t1 = endTimeB;
-            break;
-        }
-        if(startTimeB > startTimeA)
-        {
-            A += VA*(startTimeB-startTimeA);
-            startTimeA = startTimeB;
-        }
-        else if(startTimeB < startTimeA)
-        {
-            B += VB*(startTimeA - startTimeB);
-            startTimeB = startTimeA;
-        }
-
-        double r(2*CN_AGENT_SIZE);
-        Vector2D w(B - A);
-        double c(w*w - r*r);
-        if(c < 0)
-        {
-            if(move2.t2 == CN_INFINITY)
-                return Constraint(agent, begin, CN_INFINITY, move1.i1, move1.j1, move1.i2, move1.j2);
-            move1.t1 += CN_DELTA;
-            move1.t2 += CN_DELTA;
-            continue;
-        }
-
-        Vector2D v(VA - VB);
-        double a(v*v);
-        double b(w*v);
-        double dscr(b*b - a*c);
-        if(dscr - CN_EPSILON < 0)
-        {
-            break;
-        }
-
-        double ctime = (b - sqrt(dscr))/a;
-        if(ctime > -CN_EPSILON && ctime < std::min(endTimeB,endTimeA) - startTimeA + CN_EPSILON)
-        {
-            if(move2.t2 == CN_INFINITY)
-                return Constraint(agent, begin, CN_INFINITY, move1.i1, move1.j1, move1.i2, move1.j2);
-            move1.t1 += CN_DELTA;
-            move1.t2 += CN_DELTA;
-            continue;
+            move1.t1 += delta;
+            move1.t2 += delta;
         }
         else
         {
+            move1.t1 -= delta;
+            move1.t2 -= delta;
+        }
+        if(move1.t1 > move2.t2 + CN_EPSILON)
+        {
+            move1.t1 = move2.t2;
+            move1.t2 = move1.t1 + endTimeA - startTimeA;
             break;
         }
+        delta /= 2.0;
     }
-    return Constraint(agent, begin, move1.t1, move1.i1, move1.j1, move1.i2, move1.j2);
+    if(delta < CN_PRECISION/2.0 + CN_EPSILON && check_conflict(move1, move2))
+    {
+        move1.t1 = fmin(move1.t1 + delta*2, move2.t2);
+        move1.t2 = move1.t1 + endTimeA - startTimeA;
+    }
+    return Constraint(agent, startTimeA, move1.t1, move1.i1, move1.j1, move1.i2, move1.j2);
 }
-
+Conflict CBS::get_conflict(std::list<Conflict> &conflicts)
+{
+    auto best_it = conflicts.begin();
+    for(auto it = conflicts.begin(); it != conflicts.end(); it++)
+        if(best_it->t < it->t)
+            best_it = it;
+    Conflict conflict = *best_it;
+    conflicts.erase(best_it);
+    return conflict;
+}
 
 Solution CBS::find_solution(const Map &map, const Task &task)
 {
@@ -210,7 +187,7 @@ Solution CBS::find_solution(const Map &map, const Task &task)
     std::chrono::duration<double> time_spent;
     int expanded(1);
     double time(0);
-    std::vector<Conflict> conflicts;
+    std::list<Conflict> conflicts;
     Conflict conflict;
     std::vector<int> conflicting_agents;
     std::vector<std::pair<int, int>> conflicting_pairs;
@@ -232,33 +209,16 @@ Solution CBS::find_solution(const Map &map, const Task &task)
             break; //i.e. no conflicts => solution found
         if(!cardinal_conflicts.empty())
         {
-            std::vector<Conflict>::iterator best_it = cardinal_conflicts.begin();
-            for(auto it = cardinal_conflicts.begin(); it != cardinal_conflicts.end(); it++)
-                if(best_it->t < it->t)
-                    best_it = it;
-            conflict = *best_it;
-            cardinal_conflicts.erase(best_it);
+            conflict = get_conflict(cardinal_conflicts);
             cardinal_solved++;
         }
         else if(!semicard_conflicts.empty())
         {
-            std::vector<Conflict>::iterator best_it = semicard_conflicts.begin();
-            for(auto it = semicard_conflicts.begin(); it != semicard_conflicts.end(); it++)
-                if(best_it->t < it->t)
-                    best_it = it;
-            conflict = *best_it;
-            semicard_conflicts.erase(best_it);
+            conflict = get_conflict(semicard_conflicts);
             semicardinal_solved++;
         }
         else
-        {
-            std::vector<Conflict>::iterator best_it = conflicts.begin();
-            for(auto it = conflicts.begin(); it != conflicts.end(); it++)
-                if(best_it->t < it->t)
-                    best_it = it;
-            conflict = *best_it;
-            conflicts.erase(best_it);
-        }
+            conflict = get_conflict(conflicts);
         expanded++;
         std::list<Constraint> constraints = get_constraints(&node, conflict.agent1);
         Constraint constraintA(get_constraint(conflict.agent1, conflict.move1, conflict.move2));
@@ -272,8 +232,8 @@ Solution CBS::find_solution(const Map &map, const Task &task)
         Path pathB = planner.find_path(task.get_agent(conflict.agent2), map, constraints, h_values);
         low_level_searches++;
         low_level_expanded += pathB.expanded;
-        CBS_Node right({pathA}, parent, constraintA, node.cost + pathA.cost - get_cost(node, conflict.agent1), node.cons_num + 1, 0, node.look_for_cardinal);
-        CBS_Node left({pathB}, parent, constraintB, node.cost + pathB.cost - get_cost(node, conflict.agent2), node.cons_num + 1, 0, node.look_for_cardinal);
+        CBS_Node right({pathA}, parent, constraintA, node.cost + pathA.cost - get_cost(node, conflict.agent1), node.cons_num, 0, node.look_for_cardinal, node.total_cons);
+        CBS_Node left({pathB}, parent, constraintB, node.cost + pathB.cost - get_cost(node, conflict.agent2), node.cons_num, 0, node.look_for_cardinal, node.total_cons);
         right.id = id++;
         left.id = id++;
         if(pathA.cost > 0)
@@ -299,7 +259,12 @@ Solution CBS::find_solution(const Map &map, const Task &task)
     while(tree.get_open_size() > 0);
     solution.paths = get_paths(&node, task.get_agents_size());
     solution.flowtime = node.cost;
-    solution.constraints_num = node.cons_num;
+    for(auto i:node.cons_num)
+    {
+        solution.constraints_num += i;
+        if(solution.max_constraints < i)
+            solution.max_constraints = i;
+    }
     solution.low_level_expansions = low_level_searches;
     solution.low_level_expanded = double(low_level_expanded)/low_level_searches;
     solution.high_level_expanded = expanded;
@@ -313,28 +278,21 @@ Solution CBS::find_solution(const Map &map, const Task &task)
 }
 
 void CBS::find_new_conflicts(const Map &map, const Task &task, CBS_Node &node, std::vector<Path> paths, Path path,
-                                 std::vector<Conflict> conflicts, std::vector<Conflict> semicard_conflicts, std::vector<Conflict> cardinal_conflicts, int &low_level_searches, int &low_level_expanded)
+                             std::list<Conflict> conflicts, std::list<Conflict> semicard_conflicts, std::list<Conflict> cardinal_conflicts,
+                             int &low_level_searches, int &low_level_expanded)
 {
     paths[path.agentID] = path;
     auto new_conflicts = get_all_conflicts(paths, path.agentID);
-    std::vector<Conflict> exs_conflicts({}), exs_semicard_conflicts({}), exs_cardinal_conflicts({});
-    std::vector<Conflict> conflictsA({}), semicard_conflictsA({}), cardinal_conflictsA({});
+    std::list<Conflict> conflictsA({}), semicard_conflictsA({}), cardinal_conflictsA({});
     for(auto c: conflicts)
         if(c.agent1 != path.agentID && c.agent2 != path.agentID)
             conflictsA.push_back(c);
-        //else
-        //    exs_conflicts.push_back(c);
     for(auto c: semicard_conflicts)
         if(c.agent1 != path.agentID && c.agent2 != path.agentID)
             semicard_conflictsA.push_back(c);
-        //else
-        //    exs_semicard_conflicts.push_back(c);
     for(auto c: cardinal_conflicts)
         if(c.agent1 != path.agentID && c.agent2 != path.agentID)
             cardinal_conflictsA.push_back(c);
-        //else
-        //    exs_cardinal_conflicts.push_back(c);
-    //if(cardinal_conflicts.empty() && semicard_conflicts.empty())
     if(CN_NO_CARDINAL)
     {
         node.conflicts = conflictsA;
@@ -347,71 +305,6 @@ void CBS::find_new_conflicts(const Map &map, const Task &task, CBS_Node &node, s
     }
     for(auto c: new_conflicts)
     {
-        /*bool found = false;
-        for(auto exs_c: exs_conflicts)
-            if(exs_c.agent1 == c.agent1 && exs_c.agent2 == c.agent2 && exs_c.move1.i1 == c.move1.i1 && exs_c.move1.i2 == c.move1.i2
-                    && exs_c.move1.j1 == c.move1.j1 && exs_c.move1.j2 == c.move1.j2 && exs_c.move2.i1 == c.move2.i1 &&
-                    exs_c.move2.i2 == c.move2.i2 && exs_c.move2.j1 == c.move2.j1 && exs_c.move2.j2 == c.move2.j2 &&
-                    fabs(exs_c.move1.t1 - c.move1.t1) < CN_EPSILON && fabs(exs_c.move2.t1 - c.move2.t1) < CN_EPSILON)
-            {
-                conflictsA.push_back(c);
-                found = true;
-                break;
-            }
-            else if(exs_c.agent2 == c.agent1 && exs_c.agent1 == c.agent2 && exs_c.move2.i1 == c.move1.i1 && exs_c.move2.i2 == c.move1.i2
-                    && exs_c.move2.j1 == c.move1.j1 && exs_c.move2.j2 == c.move1.j2 && exs_c.move1.i1 == c.move2.i1 &&
-                    exs_c.move1.i2 == c.move2.i2 && exs_c.move1.j1 == c.move2.j1 && exs_c.move1.j2 == c.move2.j2 &&
-                    fabs(exs_c.move2.t1 - c.move1.t1) < CN_EPSILON && fabs(exs_c.move1.t1 - c.move2.t1) < CN_EPSILON)
-            {
-                conflictsA.push_back(c);
-                found = true;
-                break;
-            }
-        if(found)
-            continue;
-        for(auto exs_c: exs_cardinal_conflicts)
-            if(exs_c.agent1 == c.agent1 && exs_c.agent2 == c.agent2 && exs_c.move1.i1 == c.move1.i1 && exs_c.move1.i2 == c.move1.i2
-                    && exs_c.move1.j1 == c.move1.j1 && exs_c.move1.j2 == c.move1.j2 && exs_c.move2.i1 == c.move2.i1 &&
-                    exs_c.move2.i2 == c.move2.i2 && exs_c.move2.j1 == c.move2.j1 && exs_c.move2.j2 == c.move2.j2 &&
-                    fabs(exs_c.move1.t1 - c.move1.t1) < CN_EPSILON && fabs(exs_c.move2.t1 - c.move2.t1) < CN_EPSILON)
-            {
-                cardinal_conflictsA.push_back(c);
-                found = true;
-                break;
-            }
-            else if(exs_c.agent2 == c.agent1 && exs_c.agent1 == c.agent2 && exs_c.move2.i1 == c.move1.i1 && exs_c.move2.i2 == c.move1.i2
-                    && exs_c.move2.j1 == c.move1.j1 && exs_c.move2.j2 == c.move1.j2 && exs_c.move1.i1 == c.move2.i1 &&
-                    exs_c.move1.i2 == c.move2.i2 && exs_c.move1.j1 == c.move2.j1 && exs_c.move1.j2 == c.move2.j2 &&
-                    fabs(exs_c.move2.t1 - c.move1.t1) < CN_EPSILON && fabs(exs_c.move1.t1 - c.move2.t1) < CN_EPSILON)
-            {
-                cardinal_conflictsA.push_back(c);
-                found = true;
-                break;
-            }
-        if(found)
-            continue;
-        for(auto exs_c: exs_semicard_conflicts)
-            if(exs_c.agent1 == c.agent1 && exs_c.agent2 == c.agent2 && exs_c.move1.i1 == c.move1.i1 && exs_c.move1.i2 == c.move1.i2
-                    && exs_c.move1.j1 == c.move1.j1 && exs_c.move1.j2 == c.move1.j2 && exs_c.move2.i1 == c.move2.i1 &&
-                    exs_c.move2.i2 == c.move2.i2 && exs_c.move2.j1 == c.move2.j1 && exs_c.move2.j2 == c.move2.j2 &&
-                    fabs(exs_c.move1.t1 - c.move1.t1) < CN_EPSILON && fabs(exs_c.move2.t1 - c.move2.t1) < CN_EPSILON)
-            {
-                semicard_conflictsA.push_back(c);
-                found = true;
-                break;
-            }
-            else if(exs_c.agent2 == c.agent1 && exs_c.agent1 == c.agent2 && exs_c.move2.i1 == c.move1.i1 && exs_c.move2.i2 == c.move1.i2
-                    && exs_c.move2.j1 == c.move1.j1 && exs_c.move2.j2 == c.move1.j2 && exs_c.move1.i1 == c.move2.i1 &&
-                    exs_c.move1.i2 == c.move2.i2 && exs_c.move1.j1 == c.move2.j1 && exs_c.move1.j2 == c.move2.j2 &&
-                    fabs(exs_c.move2.t1 - c.move1.t1) < CN_EPSILON && fabs(exs_c.move1.t1 - c.move2.t1) < CN_EPSILON)
-            {
-                semicard_conflictsA.push_back(c);
-                found = true;
-                break;
-            }
-        if(found)
-            continue;
-*/
         std::list<Constraint> constraintsA, constraintsB;
         if(path.agentID == c.agent1)
         {

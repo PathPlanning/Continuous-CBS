@@ -22,9 +22,11 @@ private:
     Constraint get_constraint(int agent, Move move1, Move move2);
     Constraint get_wait_constraint(int agent, Move move1, Move move2);
     void find_new_conflicts(const Map &map, const Task &task, CBS_Node &node, std::vector<Path> paths, Path path,
-                                std::vector<Conflict> conflicts, std::vector<Conflict> semicard_conflicts, std::vector<Conflict> cardinal_conflicts, int &low_level_searches, int &low_level_expanded);
+                            std::list<Conflict> conflicts, std::list<Conflict> semicard_conflicts, std::list<Conflict> cardinal_conflicts,
+                            int &low_level_searches, int &low_level_expanded);
     double get_cost(CBS_Node node, int agent_id);
     std::vector<Path> get_paths(CBS_Node *node, int agents_size);
+    Conflict get_conflict(std::list<Conflict> &conflicts);
     CBS_Tree tree;
     SIPP planner;
     Solution solution;

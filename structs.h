@@ -13,6 +13,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
+#include <boost/multi_index/composite_key.hpp>
 using boost::multi_index_container;
 using namespace boost::multi_index;
 
@@ -120,18 +121,25 @@ struct CBS_Node
     int id;
     double cost;
     double f;
-    int cons_num;
+    std::vector<int> cons_num;
     int conflicts_num;
     bool look_for_cardinal;
+    int total_cons;
     int low_level_expanded;
-    std::vector<Conflict> conflicts;
-    std::vector<Conflict> semicard_conflicts;
-    std::vector<Conflict> cardinal_conflicts;
-    CBS_Node(std::vector<Path> _paths = {}, CBS_Node* _parent = nullptr, Constraint _constraint = Constraint(), double _cost = 0, int _cons_num = 0, int _conflicts_num = 0, bool _look_for_cardinal = true)
-        :paths(_paths), parent(_parent), constraint(_constraint), cost(_cost), cons_num(_cons_num), conflicts_num(_conflicts_num), look_for_cardinal(_look_for_cardinal)
+    std::list<Conflict> conflicts;
+    std::list<Conflict> semicard_conflicts;
+    std::list<Conflict> cardinal_conflicts;
+    CBS_Node(std::vector<Path> _paths = {}, CBS_Node* _parent = nullptr, Constraint _constraint = Constraint(), double _cost = 0,
+             std::vector<int> _cons_num = {}, int _conflicts_num = 0, bool _look_for_cardinal = true, int total_cons_ = 0)
+        :paths(_paths), parent(_parent), constraint(_constraint), cost(_cost), cons_num(_cons_num), conflicts_num(_conflicts_num), look_for_cardinal(_look_for_cardinal), total_cons(total_cons_)
     {
         low_level_expanded = 0;
         conflicts = {};
+        if(paths.size() == 1)
+        {
+            cons_num[paths[0].agentID]++;
+            total_cons++;
+        }
         cardinal_conflicts = {};
     }
     ~CBS_Node()
@@ -168,7 +176,8 @@ struct id{};
 typedef multi_index_container<
         Open_Elem,
         indexed_by<
-                    ordered_non_unique<tag<cost>, BOOST_MULTI_INDEX_MEMBER(Open_Elem, double, cost)>,
+                    //ordered_non_unique<tag<cost>, BOOST_MULTI_INDEX_MEMBER(Open_Elem, double, cost)>,
+                    ordered_non_unique<composite_key<Open_Elem, BOOST_MULTI_INDEX_MEMBER(Open_Elem, double, cost), BOOST_MULTI_INDEX_MEMBER(Open_Elem, int, conflicts_num)>>,
                     hashed_unique<tag<id>, BOOST_MULTI_INDEX_MEMBER(Open_Elem, int, id)>
         >
 > CT_container;
@@ -179,16 +188,16 @@ struct Focal_Elem
     int conflicts_num;
     int constraints;
     double cost;
-    Focal_Elem(int id_=-1, int conflicts_num_=-1):id(id_), conflicts_num(conflicts_num_){}
+    Focal_Elem(int id_=-1, int conflicts_num_=-1, int constraints_ = 0, double cost_ = 0):id(id_), conflicts_num(conflicts_num_), constraints(constraints_), cost(cost_){}
     bool operator <(const Focal_Elem& other) const
     {
         if(this->conflicts_num < other.conflicts_num)
             return true;
         else if(this->conflicts_num > other.conflicts_num)
             return false;
-        else if(this->constraints < other.constraints)
-            return true;
         else if(this->constraints > other.constraints)
+            return true;
+        else if(this->constraints < other.constraints)
             return false;
         else if(this->cost < other.cost)
             return true;
@@ -197,11 +206,13 @@ struct Focal_Elem
     }
 };
 struct conflicts_num{};
+struct constraints_num{};
 
 typedef multi_index_container<
         Focal_Elem,
         indexed_by<
             ordered_non_unique<tag<conflicts_num>, identity<Focal_Elem>>,
+            //ordered_non_unique<tag<constraints_num>, BOOST_MULTI_INDEX_MEMBER(Focal_Elem, int, constraints)>,
             hashed_unique<tag<id>, BOOST_MULTI_INDEX_MEMBER(Focal_Elem, int, id)>
         >
 > Focal_container;
@@ -216,7 +227,7 @@ class CBS_Tree
     int open_size;
     std::set<int> closed;
 public:
-    CBS_Tree() { open_size = 0; open.clear(); w = 1.0;}
+    CBS_Tree() { open_size = 0; open.clear(); w = 1.0; }
     int get_size()
     {
         return tree.size();
@@ -235,11 +246,11 @@ public:
     void add_node(CBS_Node node)
     {
         tree.push_back(node);
-        container.insert(Open_Elem(&tree.back(), node.id, node.cost, node.f, node.cons_num, node.conflicts_num));
+        container.insert(Open_Elem(&tree.back(), node.id, node.cost, node.f, node.total_cons, node.conflicts_num));
         open_size++;
         if(CN_FOCAL_W > 1.0)
             if(container.get<0>().begin()->cost*w > node.cost)
-                focal.insert(Focal_Elem(node.id, node.conflicts_num));
+                focal.insert(Focal_Elem(node.id, node.conflicts_num, node.total_cons, node.cost));
     }
 
     CBS_Node* get_front()
@@ -249,9 +260,9 @@ public:
         {
             double cost = container.get<0>().begin()->cost;
             auto min = container.get<1>().find(focal.get<0>().begin()->id);
+            focal.get<0>().erase(focal.get<0>().begin());
             auto pointer = min->tree_pointer;
             container.get<1>().erase(min);
-            focal.erase(focal.begin());
             if(container.get<0>().begin()->cost > cost + CN_EPSILON)
                 update_focal(cost);
             return pointer;
@@ -269,7 +280,7 @@ public:
         auto it0 = container.get<0>().lower_bound(cost);
         auto it1 = container.get<0>().upper_bound(cost*w);
         for(auto it = it0; it != it1; it++)
-            focal.insert(Focal_Elem(it->id, it->conflicts_num));
+            focal.insert(Focal_Elem(it->id, it->conflicts_num, it->cons_num, it->cost));
     }
 
     std::vector<Path> get_paths(CBS_Node node, int size)
@@ -296,6 +307,7 @@ struct Solution
     double check_time;
     double init_cost;
     int constraints_num;
+    int max_constraints;
     int high_level_expanded;
     int low_level_expansions;
     double low_level_expanded;
@@ -305,7 +317,7 @@ struct Solution
     std::chrono::duration<double> init_time;
     std::vector<Path> paths;
     Solution(double _flowtime = -1, double _makespan = -1, std::vector<Path> _paths = {})
-        : flowtime(_flowtime), makespan(_makespan), paths(_paths) { init_cost = -1; constraints_num = 0; low_level_expanded = 0; low_level_expansions = 0; cardinal_solved = 0; semicardinal_solved = 0;}
+        : flowtime(_flowtime), makespan(_makespan), paths(_paths) { init_cost = -1; constraints_num = 0; low_level_expanded = 0; low_level_expansions = 0; cardinal_solved = 0; semicardinal_solved = 0; max_constraints = 0;}
     ~Solution() { paths.clear(); }
 };
 

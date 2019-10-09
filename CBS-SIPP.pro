@@ -14,7 +14,6 @@ SOURCES += main.cpp \
     heuristic.cpp
 
 HEADERS += \
-    CTcontainer.h \
     config.h \
     structs.h \
     cbs.h \

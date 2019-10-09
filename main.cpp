@@ -4,6 +4,7 @@
 #include "task.h"
 #include "cbs.h"
 #include "xml_logger.h"
+
 int main(int argc, const char *argv[])
 {
     if(argc > 2)
@@ -30,31 +31,5 @@ int main(int argc, const char *argv[])
     }
     return 0;
 
-    /*std::ofstream out;
-    out.open("log_den_k3_focal.txt");
-    auto agents = {10,15,20,25,30};
-    for(auto a: agents)
-        for(int i = 0; i < 250; i++)
-    {
-        auto map_path = "D:/Users/andreychuk/Documents/GitHub/CBS/build-CBS-SIPP-Desktop_Qt_5_10_1_MinGW_32bit-Release/release/instances/den520d/map.xml";
-        auto task_path = "D:/Users/andreychuk/Documents/GitHub/CBS/build-CBS-SIPP-Desktop_Qt_5_10_1_MinGW_32bit-Release/release/instances/den520d/"+std::to_string(a)+"/"+std::to_string(i)+"_task.xml";
-        //std::cout<<map_path<<"\n"<<task_path<<"\n";
-        Map map = Map();
-        map.get_map(map_path);
-        map.generate_moves();
-        Task task;
-        task.get_task(task_path.c_str());
-        CBS cbs;
-        Solution solution = cbs.find_solution(map, task);
-
-        out<<a<<" "<<i<<" "<<solution.time.count() << " " << solution.makespan << " " << solution.flowtime<< " "<<solution.init_cost<< " " << solution.init_time.count() << " " <<
-                           solution.check_time << " " << solution.high_level_expanded << " " << solution.low_level_expansions << " " << solution.low_level_expanded << " " << solution.cardinal_solved << " "
-                     << solution.semicardinal_solved << std::endl;
-        std::cout<<a<<" "<<i<<" "<<solution.time.count() << " " << solution.makespan << " " << solution.flowtime<< " "<<solution.init_cost<< " " << solution.init_time.count() << " " <<
-                   solution.check_time << " " << solution.high_level_expanded << " " << solution.low_level_expansions << " " << solution.low_level_expanded << " " << solution.cardinal_solved << " "
-             << solution.semicardinal_solved << std::endl;
-    }
-    out.close();
-
-    return 0;*/
+    return 0;
 }
