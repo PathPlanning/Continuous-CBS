@@ -6,7 +6,7 @@ bool CBS::init_root(const Map &map, const Task &task)
     CBS_Node root;
     tree.set_focal_weight(CN_FOCAL_W);
     Path path;
-    h_values.init(map.get_height(), map.get_width(), task.get_agents_size());
+    h_values.init(map.get_size(), task.get_agents_size());
     for(int i = 0; i < task.get_agents_size(); i++)
     {
         Agent agent = task.get_agent(i);
@@ -22,20 +22,25 @@ bool CBS::init_root(const Map &map, const Task &task)
     root.cons_num.resize(task.get_agents_size(),0);
     root.id = 1;
     auto conflicts = get_all_conflicts(root.paths, -1);
+    root.conflicts_num = conflicts.size();
+
     for(auto conflict: conflicts)
-    {
-        auto pathA = planner.find_path(task.get_agent(conflict.agent1), map, {get_constraint(conflict.agent1, conflict.move1, conflict.move2)}, h_values);
-        auto pathB = planner.find_path(task.get_agent(conflict.agent2), map, {get_constraint(conflict.agent2, conflict.move2, conflict.move1)}, h_values);
-        if(pathA.cost > root.paths[conflict.agent1].cost && pathB.cost > root.paths[conflict.agent2].cost)
-        {
-            conflict.overcost = std::min(pathA.cost - root.paths[conflict.agent1].cost, pathB.cost - root.paths[conflict.agent2].cost);
-            root.cardinal_conflicts.push_back(conflict);
-        }
-        else if(pathA.cost > root.paths[conflict.agent1].cost || pathB.cost > root.paths[conflict.agent2].cost)
-            root.semicard_conflicts.push_back(conflict);
-        else
+        if(CN_NO_CARDINAL)
             root.conflicts.push_back(conflict);
-    }
+        else
+        {
+            auto pathA = planner.find_path(task.get_agent(conflict.agent1), map, {get_constraint(conflict.agent1, conflict.move1, conflict.move2)}, h_values);
+            auto pathB = planner.find_path(task.get_agent(conflict.agent2), map, {get_constraint(conflict.agent2, conflict.move2, conflict.move1)}, h_values);
+            if(pathA.cost > root.paths[conflict.agent1].cost && pathB.cost > root.paths[conflict.agent2].cost)
+            {
+                conflict.overcost = std::min(pathA.cost - root.paths[conflict.agent1].cost, pathB.cost - root.paths[conflict.agent2].cost);
+                root.cardinal_conflicts.push_back(conflict);
+            }
+            else if(pathA.cost > root.paths[conflict.agent1].cost || pathB.cost > root.paths[conflict.agent2].cost)
+                root.semicard_conflicts.push_back(conflict);
+            else
+                root.conflicts.push_back(conflict);
+        }
     solution.init_cost = root.cost;
     tree.add_node(root);
     solution.init_time = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t);
@@ -126,17 +131,17 @@ Constraint CBS::get_wait_constraint(int agent, Move move1, Move move2)
             interval.second = move2.t1 + ha + size;
         }
     }
-    return Constraint(agent, interval.first, interval.second, move1.i1, move1.j1, move1.i2, move1.j2);
+    return Constraint(agent, interval.first, interval.second, move1.i1, move1.j1, move1.i2, move1.j2, move1.id1, move1.id2);
 }
 
 Constraint CBS::get_constraint(int agent, Move move1, Move move2)
 {
-    if(move1.i1 == move1.i2 && move1.j1 == move1.j2)
+    if(move1.id1 == move1.id2)
         return get_wait_constraint(agent, move1, move2);
     double startTimeA(move1.t1), endTimeA(move1.t2);
     Vector2D A(move1.i1, move1.j1), A2(move1.i2, move1.j2), B(move2.i1, move2.j1), B2(move2.i2, move2.j2);
     if(move2.t2 == CN_INFINITY)
-        return Constraint(agent, move1.t1, CN_INFINITY, move1.i1, move1.j1, move1.i2, move1.j2);
+        return Constraint(agent, move1.t1, CN_INFINITY, move1.i1, move1.j1, move1.i2, move1.j2, move1.id1, move1.id2);
     double delta = move2.t2 - move1.t1;
     while(delta > CN_PRECISION/2.0)
     {
@@ -163,7 +168,7 @@ Constraint CBS::get_constraint(int agent, Move move1, Move move2)
         move1.t1 = fmin(move1.t1 + delta*2, move2.t2);
         move1.t2 = move1.t1 + endTimeA - startTimeA;
     }
-    return Constraint(agent, startTimeA, move1.t1, move1.i1, move1.j1, move1.i2, move1.j2);
+    return Constraint(agent, startTimeA, move1.t1, move1.i1, move1.j1, move1.i2, move1.j2, move1.id1, move1.id2);
 }
 Conflict CBS::get_conflict(std::list<Conflict> &conflicts)
 {
@@ -206,7 +211,9 @@ Solution CBS::find_solution(const Map &map, const Task &task)
         time_spent = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - time_now);
         time += time_spent.count();
         if(conflicts.empty() && semicard_conflicts.empty() && cardinal_conflicts.empty())
+        {
             break; //i.e. no conflicts => solution found
+        }
         if(!cardinal_conflicts.empty())
         {
             conflict = get_conflict(cardinal_conflicts);
@@ -387,14 +394,14 @@ Conflict CBS::check_paths(Path pathA, Path pathB)
         else if(a == nodesA.size() - 1) // if agent A has already reached the goal
         {
             if(sqrt(pow(nodesA[a].i - nodesB[b].i, 2) + pow(nodesA[a].j - nodesB[b].j, 2)) - CN_EPSILON < (nodesB[b+1].g - nodesB[b].g))
-                if(check_conflict(Move(nodesA[a].g, CN_INFINITY, nodesA[a].i, nodesA[a].j, nodesA[a].i, nodesA[a].j), Move(nodesB[b], nodesB[b+1])))
-                    return Conflict(pathA.agentID, pathB.agentID, Move(nodesA[a].g, CN_INFINITY, nodesA[a].i, nodesA[a].j, nodesA[a].i, nodesA[a].j), Move(nodesB[b], nodesB[b+1]), std::min(nodesA[a].g, nodesB[b].g));
+                if(check_conflict(Move(nodesA[a].g, CN_INFINITY, nodesA[a].i, nodesA[a].j, nodesA[a].i, nodesA[a].j, nodesA[a].id, nodesA[a].id), Move(nodesB[b], nodesB[b+1])))
+                    return Conflict(pathA.agentID, pathB.agentID, Move(nodesA[a].g, CN_INFINITY, nodesA[a].i, nodesA[a].j, nodesA[a].i, nodesA[a].j, nodesA[a].id, nodesA[a].id), Move(nodesB[b], nodesB[b+1]), std::min(nodesA[a].g, nodesB[b].g));
         }
         else if(b == nodesB.size() - 1) // if agent B has already reached the goal
         {
             if(sqrt(pow(nodesA[a].i - nodesB[b].i, 2) + pow(nodesA[a].j - nodesB[b].j, 2)) - CN_EPSILON < (nodesA[a+1].g - nodesA[a].g))
-                if(check_conflict(Move(nodesA[a], nodesA[a+1]), Move(nodesB[b].g, CN_INFINITY, nodesB[b].i, nodesB[b].j, nodesB[b].i, nodesB[b].j)))
-                    return Conflict(pathA.agentID, pathB.agentID, Move(nodesA[a], nodesA[a+1]), Move(nodesB[b].g, CN_INFINITY, nodesB[b].i, nodesB[b].j, nodesB[b].i, nodesB[b].j), std::min(nodesA[a].g, nodesB[b].g));
+                if(check_conflict(Move(nodesA[a], nodesA[a+1]), Move(nodesB[b].g, CN_INFINITY, nodesB[b].i, nodesB[b].j, nodesB[b].i, nodesB[b].j, nodesB[b].id, nodesB[b].id)))
+                    return Conflict(pathA.agentID, pathB.agentID, Move(nodesA[a], nodesA[a+1]), Move(nodesB[b].g, CN_INFINITY, nodesB[b].i, nodesB[b].j, nodesB[b].i, nodesB[b].j, nodesB[b].id, nodesB[b].id), std::min(nodesA[a].g, nodesB[b].g));
         }
         if(a == nodesA.size() - 1)
             b++;

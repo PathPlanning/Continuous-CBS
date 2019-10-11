@@ -10,6 +10,7 @@
 #include "structs.h"
 #include "const.h"
 #include <fstream>
+#include "map.h"
 
 class Task
 {
@@ -18,6 +19,8 @@ private:
 public:
     bool get_task(const char* FileName);
     int get_agents_size() const { return agents.size(); }
+    void make_ids(int width);
+    void make_ij(const Map &map);
     Agent get_agent(int id) const;
     void print_task()
     {

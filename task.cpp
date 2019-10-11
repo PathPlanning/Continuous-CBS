@@ -38,15 +38,43 @@ bool Task::get_task(const char *FileName)
         stream << agent->Attribute(CNS_TAG_START_J);
         stream >> a.start_j;
         stream.clear();
+        stream << agent->Attribute(CNS_TAG_START_ID);
+        stream >> a.start_id;
+        stream.clear();
         stream << agent->Attribute(CNS_TAG_GOAL_I);
         stream >> a.goal_i;
         stream.clear();
         stream << agent->Attribute(CNS_TAG_GOAL_J);
         stream >> a.goal_j;
+        stream.clear();
+        stream << agent->Attribute(CNS_TAG_GOAL_ID);
+        stream >> a.goal_id;
         a.id = agents.size();
         agents.push_back(a);
 
     }
+}
+
+void Task::make_ids(int width)
+{
+    for(size_t i = 0; i < agents.size(); i++)
+    {
+        agents[i].start_id = agents[i].start_i*width + agents[i].start_j;
+        agents[i].goal_id = agents[i].goal_i*width + agents[i].goal_j;
+    }
+}
+
+void Task::make_ij(const Map& map)
+{
+    for(unsigned int i = 0; i < agents.size(); i++)
+    {
+        gNode start = map.get_gNode(agents[i].start_id), goal = map.get_gNode(agents[i].goal_id);
+        agents[i].start_i = start.i;
+        agents[i].start_j = start.j;
+        agents[i].goal_i = goal.i;
+        agents[i].goal_j = goal.j;
+    }
+
 }
 
 Agent Task::get_agent(int id) const

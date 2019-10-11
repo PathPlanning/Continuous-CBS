@@ -11,9 +11,12 @@ int main(int argc, const char *argv[])
     {
         Map map = Map();
         map.get_map(argv[1]);
-        map.generate_moves();
         Task task;
         task.get_task(argv[2]);
+        if(map.is_roadmap())
+            task.make_ij(map);
+        else
+            task.make_ids(map.get_width());
         CBS cbs;
         Solution solution = cbs.find_solution(map, task);
         XML_logger logger;
@@ -29,7 +32,5 @@ int main(int argc, const char *argv[])
     {
         std::cout<<"Error! Not enough input parameters are specified!\n";
     }
-    return 0;
-
     return 0;
 }
