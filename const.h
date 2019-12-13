@@ -1,13 +1,12 @@
 #ifndef CONST_H
 #define CONST_H
 
-#define CN_CARDINAL      1
-#define CN_HISTORY       1
-#define CN_STOP_CARDINAL 1
-#define CN_TIMELIMIT     60 // in seconds
-#define CN_AGENT_SIZE    sqrt(2.0)/4.0
-#define CN_K             4
-#define CN_DELTA         0.1
+#define CN_USE_CARDINAL  1
+#define CN_TIMELIMIT     30 // in seconds
+#define CN_AGENT_SIZE    sqrt(2.0)/4.0 //radius
+#define CN_CONNECTEDNESS 2
+#define CN_PRECISION     0.00001
+#define CN_FOCAL_WEIGHT  1.0
 #define CN_OBSTL         1
 #define CN_EPSILON       1e-8
 #define CN_INFINITY		 1e+8
@@ -22,8 +21,10 @@
     #define CNS_TAG_WIDTH           "width"
     #define CNS_TAG_START_I         "start_i"
     #define CNS_TAG_START_J         "start_j"
+    #define CNS_TAG_START_ID        "start_id"
     #define CNS_TAG_GOAL_I          "goal_i"
     #define CNS_TAG_GOAL_J          "goal_j"
+    #define CNS_TAG_GOAL_ID         "goal_id"
     #define CNS_TAG_GRID            "grid"
         #define CNS_TAG_ROW         "row"
     #define CNS_TAG_WEIGHT          "weight"

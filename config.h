@@ -4,19 +4,20 @@
 #include "const.h"
 #include <string>
 #include <iostream>
+#include <sstream>
+#include <math.h>
 
 class Config
 {
 public:
     Config();
-    bool getConfig(const char* fileName);
-    double delta;
-    bool cardinal;
-    bool history;
-    bool stop_cardinal;
-    int connectdness;
-    double agent_size;
-    double timelimit;
+    void getConfig(const char* fileName);
+    double  precision;
+    double  focal_weight;
+    bool    use_cardinal;
+    int     connectdness;
+    double  agent_size;
+    double  timelimit;
 };
 
 #endif // CONFIG_H

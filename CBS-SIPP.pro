@@ -2,7 +2,8 @@ TEMPLATE = app
 CONFIG += console c++11
 CONFIG -= app_bundle
 CONFIG -= qt
-TARGET = C-CBS
+TARGET = CCBS
+INCLUDEPATH += boost_1_71_0/
 SOURCES += main.cpp \
     cbs.cpp \
     config.cpp \

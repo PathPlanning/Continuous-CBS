@@ -18,18 +18,17 @@ private:
     Agent agent;
     void find_successors(Node curNode, const Map &map, std::list<Node> &succs, Heuristic &h_values);
     void add_open(Node newNode);
-    Node find_min(int size);
+    Node find_min();
     double dist(const Node& a, const Node& b);
     void reconstruct_path(Node curNode);
     void make_constraints(std::list<Constraint> &cons);
     void clear();
 
-    unsigned int openSize;
     std::unordered_multimap<int, Node> close;
-    std::vector<std::list<Node>> open;
+    std::list<Node> open;
     Path path;
-    std::map<Move, std::vector<Move>> constraints;//stores sets of constraints associated with moves
-    std::map<std::pair<int, int>, std::vector<std::pair<double, double>>> collision_intervals;//stores sets of collision intervals associated with cells
+    std::map<std::pair<int, int>, std::vector<Move>> constraints;//stores sets of constraints associated with moves
+    std::map<int, std::vector<std::pair<double, double>>> collision_intervals;//stores sets of collision intervals associated with cells
 };
 
 #endif // SIPP_H

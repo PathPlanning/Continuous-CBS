@@ -1,7 +1,10 @@
 cmake_minimum_required( VERSION 2.8 )
 
-project( C-CBS )
+project( CCBS )
 
+set(Boost_USE_STATIC_LIBS OFF) 
+find_package(Boost COMPONENTS multi_index)
+include_directories( ${Boost_INCLUDE_DIRS} )
 include_directories( "." )
 
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O2 -Wall -Wextra" )
@@ -28,4 +31,4 @@ set( HEADER_FILES
      cbs.h
 	 structs.h)
 
-add_executable( C-CBS ${SOURCE_FILES} ${HEADER_FILES} )
+add_executable( CCBS ${SOURCE_FILES} ${HEADER_FILES} )

@@ -2,12 +2,33 @@
 
 bool Map::get_map(const char* FileName)
 {
+    tinyxml2::XMLElement *root = nullptr;
+    tinyxml2::XMLDocument doc;
+    if (doc.LoadFile(FileName) != tinyxml2::XMLError::XML_SUCCESS)
+    {
+        std::cout << "Error opening XML file!" << std::endl;
+        return false;
+    }
+    root = doc.FirstChildElement(CNS_TAG_ROOT);
+    if (root)
+    {
+        map_is_roadmap = false;
+        return get_grid(FileName);
+    }
+    else
+    {
+        map_is_roadmap = true;
+        return get_roadmap(FileName);
+    }
+}
+
+bool Map::get_grid(const char* FileName)
+{
 
     tinyxml2::XMLElement *root = nullptr, *map = nullptr, *element = nullptr, *mapnode = nullptr;
 
     std::string value;
     std::stringstream stream;
-
     bool hasGridMem(false), hasGrid(false), hasHeight(false), hasWidth(false);
 
     tinyxml2::XMLDocument doc;
@@ -148,20 +169,14 @@ bool Map::get_map(const char* FileName)
         std::cout << "Error! There is no tag 'grid' in xml-file!\n";
         return false;
     }
-    return true;
-}
-
-void Map::generate_moves()
-{
+    size = width*height;
     std::vector<Step> moves;
-    valid_moves.resize(height);
-    for(int i = 0; i < height; i++)
-        valid_moves[i].resize(width);
-    if(CN_K == 2)
+    valid_moves.resize(height*width);
+    if(connectedness == 2)
         moves = {{0,1}, {1,0}, {-1,0},  {0,-1}};
-    else if(CN_K == 3)
+    else if(connectedness == 3)
         moves = {{0,1}, {1,1}, {1,0},  {1,-1},  {0,-1},  {-1,-1}, {-1,0}, {-1,1}};
-    else if(CN_K == 4)
+    else if(connectedness == 4)
         moves = {{0,1}, {1,1}, {1,0},  {1,-1},  {0,-1},  {-1,-1}, {-1,0}, {-1,1},
                  {1,2}, {2,1}, {2,-1}, {1,-2}, {-1,-2}, {-2,-1}, {-2,1},  {-1,2}};
     else
@@ -169,22 +184,94 @@ void Map::generate_moves()
                  {1,2},   {2,1},   {2,-1},  {1,-2},  {-1,-2}, {-2,-1}, {-2,1}, {-1,2},
                  {1,3},   {2,3},   {3,2},   {3,1},   {3,-1},  {3,-2},  {2,-3}, {1,-3},
                  {-1,-3}, {-2,-3}, {-3,-2}, {-3,-1}, {-3,1},  {-3,2},  {-2,3}, {-1,3}};
-    for(int i = 0; i < moves.size(); i++)
-        moves[i].cost = sqrt(pow(moves[i].i, 2) + pow(moves[i].j, 2));
     for(int i = 0; i < height; i++)
         for(int j = 0; j < width; j++)
         {
             std::vector<bool> valid(moves.size(), true);
-            for(int k = 0; k < moves.size(); k++)
-                if(!cell_on_grid(i + moves[k].i, j + moves[k].j) || cell_is_obstacle(i + moves[k].i, j + moves[k].j)
-                        || !check_line(i, j, i+moves[k].i, j+moves[k].j))
+            for(unsigned int k = 0; k < moves.size(); k++)
+                if((i + moves[k].i) < 0 || (i + moves[k].i) >= height || (j + moves[k].j) < 0 || (j + moves[k].j) >= width
+                        || cell_is_obstacle(i + moves[k].i, j + moves[k].j)
+                        || !check_line(i, j, i + moves[k].i, j + moves[k].j))
                     valid[k] = false;
-            std::vector<Step> v_moves = {};
-            for(int k = 0; k < valid.size(); k++)
+            std::vector<Node> v_moves = {};
+            for(unsigned int k = 0; k < valid.size(); k++)
                 if(valid[k])
-                    v_moves.push_back(moves[k]);
-            valid_moves[i][j] = v_moves;
+                    v_moves.push_back(Node((i + moves[k].i)*width + moves[k].j + j, 0, 0, i + moves[k].i, j + moves[k].j));
+            valid_moves[i*width+j] = v_moves;
         }
+    return true;
+}
+
+bool Map::get_roadmap(const char *FileName)
+{
+    tinyxml2::XMLDocument doc;
+    if (doc.LoadFile(FileName) != tinyxml2::XMLError::XML_SUCCESS)
+    {
+        std::cout << "Error opening XML file!" << std::endl;
+        return false;
+    }
+    tinyxml2::XMLElement *root = 0, *element = 0, *data;
+    std::string value;
+    std::stringstream stream;
+    root = doc.FirstChildElement("graphml")->FirstChildElement("graph");
+    for(element = root->FirstChildElement("node"); element; element = element->NextSiblingElement("node"))
+    {
+        data = element->FirstChildElement();
+
+        stream.str("");
+        stream.clear();
+        stream << data->GetText();
+        stream >> value;
+        auto it = value.find_first_of(",");
+        stream.str("");
+        stream.clear();
+        stream << value.substr(0, it);
+        double i;
+        stream >> i;
+        stream.str("");
+        stream.clear();
+        value.erase(0, ++it);
+        stream << value;
+        double j;
+        stream >> j;
+        gNode node;
+        node.i = i;
+        node.j = j;
+        nodes.push_back(node);
+    }
+    for(element = root->FirstChildElement("edge"); element; element = element->NextSiblingElement("edge"))
+    {
+        std::string source = std::string(element->Attribute("source"));
+        std::string target = std::string(element->Attribute("target"));
+        source.erase(source.begin(),++source.begin());
+        target.erase(target.begin(),++target.begin());
+        int id1, id2;
+        stream.str("");
+        stream.clear();
+        stream << source;
+        stream >> id1;
+        stream.str("");
+        stream.clear();
+        stream << target;
+        stream >> id2;
+        nodes[id1].neighbors.push_back(id2);
+    }
+    for(gNode cur:nodes)
+    {
+        Node node;
+        std::vector<Node> neighbors;
+        neighbors.clear();
+        for(int i = 0; i < cur.neighbors.size(); i++)
+        {
+            node.i = nodes[cur.neighbors[i]].i;
+            node.j = nodes[cur.neighbors[i]].j;
+            node.id = cur.neighbors[i];
+            neighbors.push_back(node);
+        }
+        valid_moves.push_back(neighbors);
+    }
+    size = nodes.size();
+    return true;
 }
 
 void Map::print_map()
@@ -196,23 +283,6 @@ void Map::print_map()
         for(int j = 0; j < width; j++)
             std::cout<<grid[i][j]<<" ";
         std::cout<<"</row>"<<std::endl;
-    }
-}
-
-void Map::generate_map()
-{
-    width = 25;
-    height = 25;
-    grid.resize(25);
-    for(int i = 0; i < 25; i++)
-        grid[i].resize(25, 0);
-    for(int i = 0; i < 50; i++)
-    {
-        int k1 = rand()%25;
-        int k2 = rand()%25;
-        if(grid[k1][k2] == 1)
-            i--;
-        grid[k1][k2] = 1;
     }
 }
 
@@ -229,33 +299,17 @@ void Map::printPPM()
         }
 }
 
-bool Map::cell_is_traversable(int i, int j) const
-{
-    return (grid[i][j] != CN_OBSTL);
-}
 
 bool Map::cell_is_obstacle(int i, int j) const
 {
     return (grid[i][j] == CN_OBSTL);
 }
 
-bool Map::cell_on_grid(int i, int j) const
+std::vector<Node> Map::get_valid_moves(int id) const
 {
-    return (i < height && i >= 0 && j < width && j >= 0);
+    return valid_moves[id];
 }
 
-std::vector<Step> Map::get_valid_moves(int i, int j) const
-{
-    return valid_moves[i][j];
-}
-
-int Map::get_value(int i, int j) const
-{
-    if(i < 0 || j < 0 || i >= height || j >= width)
-        return -1;
-    else
-        return grid[i][j];
-}
 bool Map::check_line(int x1, int y1, int x2, int y2)
 {
     int delta_x(std::abs(x1 - x2));
@@ -268,12 +322,12 @@ bool Map::check_line(int x1, int y1, int x2, int y2)
     int step_x(x1 < x2 ? 1 : -1);
     int step_y(y1 < y2 ? 1 : -1);
     int error(0), x(x1), y(y1);
-    int gap = CN_AGENT_SIZE*sqrt(pow(delta_x, 2) + pow(delta_y, 2)) + double(delta_x + delta_y)/2 - CN_EPSILON;
+    int gap = agent_size*sqrt(pow(delta_x, 2) + pow(delta_y, 2)) + double(delta_x + delta_y)/2 - CN_EPSILON;
     int k, num;
 
     if(delta_x > delta_y)
     {
-        int extraCheck = CN_AGENT_SIZE*delta_y/sqrt(pow(delta_x, 2) + pow(delta_y, 2)) + 0.5 - CN_EPSILON;
+        int extraCheck = agent_size*delta_y/sqrt(pow(delta_x, 2) + pow(delta_y, 2)) + 0.5 - CN_EPSILON;
         for(int n = 1; n <= extraCheck; n++)
         {
             error += delta_y;
@@ -314,7 +368,7 @@ bool Map::check_line(int x1, int y1, int x2, int y2)
     }
     else
     {
-        int extraCheck = CN_AGENT_SIZE*delta_x/sqrt(pow(delta_x, 2) + pow(delta_y, 2)) + 0.5 - CN_EPSILON;
+        int extraCheck = agent_size*delta_x/sqrt(pow(delta_x, 2) + pow(delta_y, 2)) + 0.5 - CN_EPSILON;
         for(int n = 1; n <= extraCheck; n++)
         {
             error += delta_x;

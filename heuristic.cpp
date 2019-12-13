@@ -1,70 +1,50 @@
 #include "heuristic.h"
 
-void Heuristic::init(int height, int width, int agents)
+void Heuristic::init(int size, int agents)
 {
     h_values.clear();
-    h_values.resize(height);
-    for(int i = 0; i < height; i++)
-    {
-        h_values[i].resize(width);
-        for(int j = 0; j < width; j++)
-            h_values[i][j].resize(agents, -1);
-    }
+    h_values.resize(size);
+    for(int i = 0; i < size; i++)
+        h_values[i].resize(agents, -1);
 }
 
-void Heuristic::count(const Map& map, Agent agent)
+void Heuristic::count(const Map &map, Agent agent)
 {
+    Node curNode(agent.goal_id, 0, 0, agent.goal_i, agent.goal_j), newNode;
     open.clear();
-    open.resize(map.get_height());
-    openSize = 0;
-    Node curNode(agent.goal_i, agent.goal_j, 0, 0), newNode;
-    add_open(curNode);
-    while(openSize > 0)
+    open.insert(curNode);
+    while(!open.empty())
     {
-        do curNode = find_min(map.get_height());
-        while(h_values[curNode.i][curNode.j][agent.id] >= 0 && openSize > 0);
-        if(h_values[curNode.i][curNode.j][agent.id] < 0)
-            h_values[curNode.i][curNode.j][agent.id] = curNode.g;
-        std::vector<Step> valid_moves = map.get_valid_moves(curNode.i, curNode.j);
+        curNode = find_min();
+        h_values[curNode.id][agent.id] = curNode.g;
+        std::vector<Node> valid_moves = map.get_valid_moves(curNode.id);
         for(auto move: valid_moves)
         {
-            newNode.i = curNode.i + move.i;
-            newNode.j = curNode.j + move.j;
-            newNode.g = curNode.g + move.cost;
-            if(h_values[newNode.i][newNode.j][agent.id] < 0)
-                add_open(newNode);
+            newNode.i = move.i;
+            newNode.j = move.j;
+            newNode.id = move.id;
+            newNode.g = curNode.g + dist(curNode, newNode);
+            if(h_values[newNode.id][agent.id] < 0)
+            {
+                auto it = open.get<1>().find(newNode.id);
+                if(it != open.get<1>().end())
+                {
+                    if(it->g > newNode.g)
+                        open.get<1>().erase(it);
+                    else
+                        continue;
+                }
+                open.insert(newNode);
+            }
         }
     }
+
 }
 
-void Heuristic::add_open(Node newNode)
+Node Heuristic::find_min()
 {
-    for(auto iter = open[newNode.i].begin(); iter != open[newNode.i].end(); ++iter)
-    {
-        if (iter->g + CN_EPSILON > newNode.g)
-        {
-            openSize++;
-            open[newNode.i].insert(iter, newNode);
-            return;
-        }
-        if (iter->j == newNode.j)
-            return;
-    }
-    openSize++;
-    open[newNode.i].push_back(newNode);
-    return;
-}
-
-Node Heuristic::find_min(int size)
-{
-    Node min;
-    min.g = CN_INFINITY;
-    for(int i = 0; i < size; i++)
-        if(!open[i].empty())
-            if(open[i].begin()->g - CN_EPSILON < min.g)
-                min = *open[i].begin();
-    open[min.i].pop_front();
-    openSize--;
+    Node min = *open.begin();
+    open.erase(open.begin());
     return min;
 }
 
