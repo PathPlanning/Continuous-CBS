@@ -10,7 +10,7 @@ matrix:
       compiler: gcc
       addons:
         apt:
-          sources: ['ubuntu-toolchain-r-test', 'sourceline: 'ppa:mhier/libboost-latest'']
+          sources: ['ubuntu-toolchain-r-test']
           packages: ['g++-4.9', 'boost']
       env: COMPILER=g++-4.9
 
@@ -19,3 +19,6 @@ script:
   - cd build
   - cmake ..
   - make
+
+before_script:
+  - sudo apt-get install libboost-dev
