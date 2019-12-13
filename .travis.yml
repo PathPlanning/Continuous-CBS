@@ -10,8 +10,8 @@ matrix:
       compiler: gcc
       addons:
         apt:
-          sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-4.9', 'boost1.71']
+          sources: ['ubuntu-toolchain-r-test', 'sourceline: 'ppa:mhier/libboost-latest'']
+          packages: ['g++-4.9', 'boost']
       env: COMPILER=g++-4.9
 
 script:
