@@ -12,6 +12,7 @@ set( CMAKE_EXE_LINKER_FLAGS "-static -static-libgcc -static-libstdc++" )
 
 set( SOURCE_FILES 
      main.cpp  
+	 config.cpp
      tinyxml2.cpp
      xml_logger.cpp 
      map.cpp 
@@ -23,6 +24,7 @@ set( SOURCE_FILES
 set( HEADER_FILES 
      const.h  
      tinyxml2.h
+	 config.h
      xml_logger.h 
      map.h 
      heuristic.h 
