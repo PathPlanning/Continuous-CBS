@@ -75,12 +75,17 @@ struct Constraint
     double t1, t2; // prohibited to start moving from (i1, j1) to (i2, j2) during interval (t1, t2)
     double i1, j1, i2, j2; // in case of node constraint i1==i2, j1==j2.
     int id1, id2;
-    Constraint(int _agent = -1, double _t1 = -1, double _t2 = -1, double _i1 = -1, double _j1 = -1, double _i2 = -1, double _j2 = -1, int _id1 = -1, int _id2 = -1)
-        : agent(_agent), t1(_t1), t2(_t2), i1(_i1), j1(_j1), i2(_i2), j2(_j2), id1(_id1), id2(_id2){}
+    bool positive;
+    Constraint(int _agent = -1, double _t1 = -1, double _t2 = -1, double _i1 = -1, double _j1 = -1, double _i2 = -1, double _j2 = -1, int _id1 = -1, int _id2 = -1, bool _positive = false)
+        : agent(_agent), t1(_t1), t2(_t2), i1(_i1), j1(_j1), i2(_i2), j2(_j2), id1(_id1), id2(_id2), positive(_positive) {}
     friend std::ostream& operator <<(std::ostream& os, const Constraint& con)
     {
         os<<con.agent<<" "<<con.t1<<" "<<con.t2<<" "<<con.i1<<" "<<con.j1<<" "<<con.i2<<" "<<con.j2<<"\n";
         return os;
+    }
+    bool operator <(const Constraint& other) const
+    {
+        return t1 < other.t1;
     }
 };
 
@@ -128,6 +133,7 @@ struct CBS_Node
     std::vector<Path> paths;
     CBS_Node* parent;
     Constraint constraint;
+    Constraint positive_constraint;
     int id;
     double cost;
     double f;
@@ -228,6 +234,15 @@ typedef multi_index_container<
         >
 > Focal_container;
 
+typedef multi_index_container<
+        Node,
+        indexed_by<
+                    //ordered_non_unique<tag<cost>, BOOST_MULTI_INDEX_MEMBER(Open_Elem, double, cost)>,
+                    ordered_non_unique<BOOST_MULTI_INDEX_MEMBER(Node, double, g)>,
+                    hashed_non_unique<BOOST_MULTI_INDEX_MEMBER(Node, int, id)>
+        >
+> Open_List;
+
 class CBS_Tree
 {
     std::list<CBS_Node> tree;
@@ -324,6 +339,7 @@ struct Solution
     int constraints_num;
     int max_constraints;
     int high_level_expanded;
+    int high_level_generated;
     int low_level_expansions;
     double low_level_expanded;
     int cardinal_solved;

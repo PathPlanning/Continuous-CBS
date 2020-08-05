@@ -16,6 +16,9 @@ public:
 private:
     bool init_root(const Map &map, const Task &task);
     std::list<Constraint> get_constraints(CBS_Node *node, int agent_id = -1);
+    //std::list<Constraint> merge_constraints(std::list<Constraint> constraints);
+    bool validate_constraints(std::list<Constraint> constraints, int agent);
+    bool check_positive_constraints(std::list<Constraint> constraints, Constraint constraint);
     Conflict check_conflicts(std::vector<Path> &paths, std::vector<int> conflicting_agents, std::vector<std::pair<int, int> > conflicting_pairs);
     Conflict check_paths(Path pathA, Path pathB);
     bool check_conflict(Move move1, Move move2);
