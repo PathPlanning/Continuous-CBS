@@ -28,6 +28,7 @@ private:
     void add_collision_interval(int id, std::pair<double, double> interval);
     void add_move_constraint(Move move);
     std::vector<Node> get_endpoints(int node_id, double node_i, double node_j, double t1, double t2);
+    double check_endpoint(Node start, Node goal);
 
     std::unordered_multimap<int, Node> close;
     std::list<Node> open;

@@ -18,6 +18,7 @@ bool CBS::init_root(const Map &map, const Task &task)
     root.parent = nullptr;
     root.cons_num.resize(task.get_agents_size(),0);
     root.id = 1;
+    root.id_str = "1";
     auto conflicts = get_all_conflicts(root.paths, -1);
     root.conflicts_num = conflicts.size();
 
@@ -170,8 +171,16 @@ Conflict CBS::get_conflict(std::list<Conflict> &conflicts)
 {
     auto best_it = conflicts.begin();
     for(auto it = conflicts.begin(); it != conflicts.end(); it++)
-        if(best_it->t < it->t)
+    {
+        if(it->overcost > 0)
+        {
+            if(best_it->overcost < it->overcost)
+                best_it = it;
+        }
+        else if(best_it->t < it->t)
             best_it = it;
+    }
+
     Conflict conflict = *best_it;
     conflicts.erase(best_it);
     return conflict;
@@ -217,6 +226,7 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
         {
             break; //i.e. no conflicts => solution found
         }
+
         if(!cardinal_conflicts.empty())
         {
             conflict = get_conflict(cardinal_conflicts);
@@ -245,6 +255,7 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
         CBS_Node right({pathA}, parent, constraintA, node.cost + pathA.cost - get_cost(node, conflict.agent1), node.cons_num, 0, node.look_for_cardinal, node.total_cons);
         CBS_Node left({pathB}, parent, constraintB, node.cost + pathB.cost - get_cost(node, conflict.agent2), node.cons_num, 0, node.look_for_cardinal, node.total_cons);
         Constraint positive;
+
         bool inserted = false;
         bool left_ok = true, right_ok = true;
         if(conflict.move1.id1 != conflict.move1.id2)
@@ -270,15 +281,18 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
             //else
             //    left_ok = false;
         }
-        right.id = node.id*10;
-        left.id = node.id*10+1;
+        right.id_str = node.id_str + "0";
+        left.id_str = node.id_str + "1";
+        right.id = id++;
+        left.id = id++;
         if(right_ok && pathA.cost > 0 && validate_constraints(constraintsA, pathA.agentID))
         {
             time_now = std::chrono::high_resolution_clock::now();
             find_new_conflicts(map, task, right, paths, pathA, conflicts, semicard_conflicts, cardinal_conflicts, low_level_searches, low_level_expanded);
             time_spent = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - time_now);
             time += time_spent.count();
-            tree.add_node(right);
+            if(right.cost > 0)
+                tree.add_node(right);
         }
         if(left_ok && pathB.cost > 0 && validate_constraints(constraintsB, pathB.agentID))
         {
@@ -286,7 +300,8 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
             find_new_conflicts(map, task, left, paths, pathB, conflicts, semicard_conflicts, cardinal_conflicts, low_level_searches, low_level_expanded);
             time_spent = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - time_now);
             time += time_spent.count();
-            tree.add_node(left);
+            if(left.cost > 0)
+                tree.add_node(left);
         }
         time_spent = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t);
         if(time_spent.count() > config.timelimit)
@@ -346,43 +361,6 @@ bool CBS::validate_constraints(std::list<Constraint> constraints, int agent)
                 if(p.t1 > c.t1 - CN_EPSILON && p.t2 < c.t2 + CN_EPSILON) //if the whole positive interval is inside collision interval
                     return false;
         }
-    /*std::vector<std::vector<Constraint>> sorted;
-    for(auto c:constraints)
-    {
-        bool inserted = false;
-        if(c.positive && c.agent == agent)
-        {
-            positives.push_back(c);
-            continue;
-        }
-        for(int i = 0; i < sorted.size(); i++)
-            if(sorted[i][0].id1 == c.id1 && sorted[i][0].id2 == c.id2 && sorted[i][0].agent == agent)
-            {
-                sorted[i].push_back(c);
-                inserted = true;
-                break;
-            }
-        if(inserted)
-            sorted.push_back({c});
-    }
-    for(int i = 0; i < sorted.size(); i++)
-        std::sort(sorted[i].begin(), sorted[i].end());
-    for(int i = 0; i < sorted.size(); i++)
-        for(int j = 0; j < sorted[i].size() - 1; j++)
-            if(sorted[i][j].t2 + CN_EPSILON > sorted[i][j+1].t1 && sorted[i][j].t2 < sorted[i][j+1].t2)
-            {
-                sorted[i][j].t2 = sorted[i][j+1].t2;
-                sorted[i].erase(sorted[i].begin() + j + 1);
-                j--;
-            }
-    for(auto p: positives)
-        for(int i = 0; i < sorted.size(); i++)
-        {
-            if(p.id1 == sorted[i][0].id1 && p.id2 == sorted[i][0].id2)
-                for(int j = 0; j < sorted[i].size(); j++)
-                    if(p.t1 > sorted[i][j].t1 - CN_EPSILON && p.t2 < sorted[i][j].t2 + CN_EPSILON)
-                        return false;
-        }*/
     return true;
 }
 
@@ -424,7 +402,24 @@ void CBS::find_new_conflicts(const Map &map, const Task &task, CBS_Node &node, s
             constraintsB.push_back(get_constraint(c.agent2, c.move2, c.move1));
             auto new_pathB = planner.find_path(task.get_agent(c.agent2), map, constraintsB, h_values);
             double old_cost = get_cost(node, c.agent2);
-            if(new_pathA.cost > path.cost && new_pathB.cost > old_cost)
+            if(new_pathA.cost < 0 && new_pathB.cost < 0)
+            {
+                node.cost = -1;
+                return;
+            }
+            else if (new_pathA.cost < 0)
+            {
+                c.overcost = new_pathB.cost - old_cost;
+                c.type = 1;
+                cardinal_conflictsA.push_back(c);
+            }
+            else if (new_pathB.cost < 0)
+            {
+                c.overcost = new_pathA.cost - path.cost;
+                c.type = 1;
+                cardinal_conflictsA.push_back(c);
+            }
+            else if(new_pathA.cost > path.cost && new_pathB.cost > old_cost)
             {
                 c.overcost = std::min(new_pathA.cost - path.cost, new_pathB.cost - old_cost);
                 cardinal_conflictsA.push_back(c);
@@ -445,7 +440,24 @@ void CBS::find_new_conflicts(const Map &map, const Task &task, CBS_Node &node, s
             constraintsB.push_back(get_constraint(c.agent1, c.move1, c.move2));
             auto new_pathB = planner.find_path(task.get_agent(c.agent1), map, constraintsB, h_values);
             double old_cost = get_cost(node, c.agent1);
-            if(new_pathA.cost > path.cost && new_pathB.cost > old_cost)
+            if(new_pathA.cost < 0 && new_pathB.cost < 0)
+            {
+                node.cost = -1;
+                return;
+            }
+            else if (new_pathA.cost < 0)
+            {
+                c.overcost = new_pathB.cost - old_cost;
+                c.type = 1;
+                cardinal_conflictsA.push_back(c);
+            }
+            else if (new_pathB.cost < 0)
+            {
+                c.overcost = new_pathA.cost - path.cost;
+                c.type = 1;
+                cardinal_conflictsA.push_back(c);
+            }
+            else if(new_pathA.cost > path.cost && new_pathB.cost > old_cost)
             {
                 c.overcost = std::min(new_pathA.cost - path.cost, new_pathB.cost - old_cost);
                 cardinal_conflictsA.push_back(c);
@@ -529,7 +541,7 @@ std::vector<Conflict> CBS::get_all_conflicts(std::vector<Path> &paths, int id)
 {
     std::vector<Conflict> conflicts;
     //check all agents
-    if(id<0)
+    if(id < 0)
         for(unsigned int i = 0; i < paths.size(); i++)
             for(unsigned int j = i + 1; j < paths.size(); j++)
             {

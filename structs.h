@@ -124,8 +124,9 @@ struct Conflict
     double t;
     Move move1, move2;
     double overcost;
-    Conflict(int _agent1 = -1, int _agent2 = -1, Move _move1 = Move(), Move _move2 = Move(), double _t = -1)
-        : agent1(_agent1), agent2(_agent2), t(_t), move1(_move1), move2(_move2) {overcost=0;}
+    int type;
+    Conflict(int _agent1 = -1, int _agent2 = -1, Move _move1 = Move(), Move _move2 = Move(), double _t = CN_INFINITY)
+        : agent1(_agent1), agent2(_agent2), t(_t), move1(_move1), move2(_move2) {overcost = 0; type = 0;}
 };
 
 struct CBS_Node
@@ -135,6 +136,7 @@ struct CBS_Node
     Constraint constraint;
     Constraint positive_constraint;
     int id;
+    std::string id_str;
     double cost;
     double f;
     std::vector<int> cons_num;

@@ -277,7 +277,7 @@ std::vector<Path> SIPP::find_partial_path(std::vector<Node> starts, std::vector<
         if(curNode.id == goals[0].id)
         {
             for(int i = 0; i < goals.size(); i++)
-                if(curNode.g < goals[i].interval.second && goals[i].interval.first < curNode.interval.second)
+                if(curNode.g - CN_EPSILON < goals[i].interval.second && goals[i].interval.first - CN_EPSILON < curNode.interval.second)
                 {
                     paths[i].nodes = reconstruct_path(curNode);
                     if(paths[i].nodes.back().g < goals[i].interval.first)
@@ -368,6 +368,24 @@ std::vector<Node> SIPP::get_endpoints(int node_id, double node_i, double node_j,
     return nodes;
 }
 
+double SIPP::check_endpoint(Node start, Node goal)
+{
+    double cost = sqrt(pow(start.i - goal.i, 2) + pow(start.j - goal.j, 2));
+    if(start.g + cost < goal.interval.first)
+        start.g = goal.interval.first - cost;
+    if(constraints.count({start.id, goal.id}) != 0)
+    {
+        auto it = constraints.find({start.id, goal.id});
+        for(int i = 0; i < it->second.size(); i++)
+            if(start.g + CN_EPSILON > it->second[i].t1 && start.g < it->second[i].t2)
+                start.g = it->second[i].t2;
+    }
+    if(start.g > start.interval.second || start.g + cost > goal.interval.second)
+        return CN_INFINITY;
+    else
+        return start.g + cost;
+}
+
 Path SIPP::find_path(Agent agent, const Map &map, std::list<Constraint> cons, Heuristic &h_values, int tree_size)
 {
     this->clear();
@@ -430,19 +448,44 @@ Path SIPP::find_path(Agent agent, const Map &map, std::list<Constraint> cons, He
                 goals = get_endpoints(landmarks[i].id2, landmarks[i].i2, landmarks[i].j2, landmarks[i].t1 + offset, landmarks[i].t2 + offset);
                 if(goals.empty())
                     return Path();
-                parts = find_partial_path(starts, goals, map, h_values, goals.back().interval.second);
                 new_results.clear();
-                for(int i = 0; i < parts.size(); i++)
-                    for(int j = 0; j < results.size(); j++)
+                for(int i = 0; i < goals.size(); i++)
+                {
+                    double best_g(CN_INFINITY);
+                    int best_start_id = -1;
+                    for(int j = 0; j < starts.size(); j++)
                     {
-                        if(parts[i].nodes.empty())
-                            continue;
-                        if(fabs(parts[i].nodes[0].interval.first - results[j].nodes.back().interval.first) < CN_EPSILON && fabs(parts[i].nodes[0].interval.second - results[j].nodes.back().interval.second) < CN_EPSILON)
+                        double g = check_endpoint(starts[j], goals[i]);
+                        if(g < best_g)
                         {
-                            new_results.push_back(results[j]);
-                            new_results.back() = add_part(new_results.back(), parts[i]);
+                            best_start_id = j;
+                            best_g = g;
                         }
                     }
+                    if(best_start_id >= 0)
+                    {
+                        goals[i].g = best_g;
+                        if(collision_intervals[goals[i].id].empty())
+                            goals[i].interval.second = CN_INFINITY;
+                        else
+                        {
+                            for(auto c:collision_intervals[goals[i].id])
+                                if(goals[i].g < c.first)
+                                {
+                                    goals[i].interval.second = c.first;
+                                    break;
+                                }
+                        }
+                        new_results.push_back(results[best_start_id]);
+                        if(goals[i].g - starts[best_start_id].g > offset + CN_EPSILON)
+                        {
+                            new_results.back().nodes.push_back(new_results.back().nodes.back());
+                            new_results.back().nodes.back().g = goals[i].g - offset;
+                        }
+                        new_results.back().nodes.push_back(goals[i]);
+                    }
+                }
+
                 results = new_results;
                 if(results.empty())
                     return Path();
