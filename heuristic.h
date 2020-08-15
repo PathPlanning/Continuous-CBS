@@ -27,6 +27,7 @@ public:
     Heuristic(){}
     void init(int size, int agents);
     void count(const Map &map, Agent agent);
+    int get_size() const {return h_values[0].size();}
     double get_value(int id_node, int id_agent) { return h_values[id_node][id_agent]; }
 };
 

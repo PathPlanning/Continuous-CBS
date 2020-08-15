@@ -258,14 +258,21 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
 
         bool inserted = false;
         bool left_ok = true, right_ok = true;
-        if(conflict.move1.id1 != conflict.move1.id2)
+        int agent1positives(0), agent2positives(0);
+        for(auto c: constraintsA)
+            if(c.positive)
+                agent1positives++;
+        for(auto c: constraintsB)
+            if(c.positive)
+                agent2positives++;
+        if(conflict.move1.id1 != conflict.move1.id2 && agent2positives > agent1positives)
         {
             positive = Constraint(conflict.agent1, constraintA.t1, constraintA.t2, conflict.move1.i1, conflict.move1.j1, conflict.move1.i2, conflict.move1.j2, conflict.move1.id1, conflict.move1.id2, true);
             if(check_positive_constraints(constraintsA, positive))
             {
-                inserted = true;
                 left.positive_constraint = positive;
                 constraintsB.push_back(left.positive_constraint);
+                inserted = true;
             }
             //else
             //    right_ok = false;
@@ -277,9 +284,22 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
             {
                 right.positive_constraint = positive;
                 constraintsA.push_back(right.positive_constraint);
+                inserted = true;
             }
             //else
             //    left_ok = false;
+        }
+        if(conflict.move1.id1 != conflict.move1.id2 && !inserted)
+        {
+            positive = Constraint(conflict.agent1, constraintA.t1, constraintA.t2, conflict.move1.i1, conflict.move1.j1, conflict.move1.i2, conflict.move1.j2, conflict.move1.id1, conflict.move1.id2, true);
+            if(check_positive_constraints(constraintsA, positive))
+            {
+                inserted = true;
+                left.positive_constraint = positive;
+                constraintsB.push_back(left.positive_constraint);
+            }
+            //else
+            //    right_ok = false;
         }
         right.id_str = node.id_str + "0";
         left.id_str = node.id_str + "1";

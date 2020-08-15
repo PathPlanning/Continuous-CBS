@@ -57,10 +57,15 @@ void SIPP::find_successors(Node curNode, const Map &map, std::list<Node> &succs,
             newNode.interval = interval;
             if(newNode.g - cost > curNode.interval.second || newNode.g > newNode.interval.second)
                 continue;
-            if(goal.id == agent.goal_id)
+            if(goal.id == agent.goal_id) //perfect heuristic is known
                 newNode.f = newNode.g + h_values.get_value(newNode.id, agent.id);
             else
-                newNode.f = newNode.g + sqrt(pow(goal.i - newNode.i, 2) + pow(goal.j - newNode.j, 2));
+            {
+                double h = sqrt(pow(goal.i - newNode.i, 2) + pow(goal.j - newNode.j, 2));
+                for(int i = 0; i < h_values.get_size(); i++) //differential heuristic with up to 10 pivots
+                    h = std::max(h, fabs(h_values.get_value(newNode.id, i) - h_values.get_value(goal.id, i)));
+                newNode.f = newNode.g + h;
+            }
             succs.push_back(newNode);
         }
     }

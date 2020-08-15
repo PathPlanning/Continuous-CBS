@@ -1,7 +1,7 @@
 #ifndef CONST_H
 #define CONST_H
 
-#define CN_USE_CARDINAL  0
+#define CN_USE_CARDINAL  1
 #define CN_TIMELIMIT     30 // in seconds
 #define CN_AGENT_SIZE    sqrt(2.0)/4.0 //radius
 #define CN_CONNECTEDNESS 2
