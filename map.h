@@ -32,7 +32,7 @@ public:
     bool is_roadmap() const {return map_is_roadmap;}
     bool cell_is_obstacle(int i, int j) const;
     int  get_width() const {return width;}
-    gNode get_gNode(int id) const {if(id < nodes.size()) return nodes[id]; return gNode();}
+    gNode get_gNode(int id) const {if(id < int(nodes.size())) return nodes[id]; return gNode();}
     int  get_id(int i, int j) const;
     std::vector<Node> get_valid_moves(int id) const;
     void print_map();

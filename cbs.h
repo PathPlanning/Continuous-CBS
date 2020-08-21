@@ -29,7 +29,7 @@ private:
                             std::list<Conflict> conflicts, std::list<Conflict> semicard_conflicts, std::list<Conflict> cardinal_conflicts,
                             int &low_level_searches, int &low_level_expanded);
     double get_cost(CBS_Node node, int agent_id);
-    std::vector<Path> get_paths(CBS_Node *node, int agents_size);
+    std::vector<Path> get_paths(CBS_Node *node, unsigned int agents_size);
     Conflict get_conflict(std::list<Conflict> &conflicts);
     CBS_Tree tree;
     SIPP planner;

@@ -66,7 +66,7 @@ void XML_logger::write_to_log_path(const Solution &solution)
 
     tinyxml2::XMLElement *agent, *path, *hplevel;
 
-    for(int i = 0; i < solution.paths.size(); i++)
+    for(int i = 0; i < int(solution.paths.size()); i++)
     {
         agent = doc->NewElement(CNS_TAG_AGENT);
         agent->SetAttribute(CNS_TAG_ATTR_NUM,i);
@@ -77,10 +77,8 @@ void XML_logger::write_to_log_path(const Solution &solution)
         path->SetAttribute(CNS_TAG_ATTR_LENGTH, solution.paths[i].cost);
         agent->LinkEndChild(path);
 
-        int k = 0;
         hplevel = doc->NewElement(CNS_TAG_HPLEVEL);
         path->LinkEndChild(hplevel);
-        k = 0;
         auto iter = solution.paths[i].nodes.begin();
         auto it = solution.paths[i].nodes.begin();
         int partnumber(0);

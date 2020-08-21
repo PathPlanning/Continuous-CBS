@@ -1,10 +1,10 @@
 #include "heuristic.h"
 
-void Heuristic::init(int size, int agents)
+void Heuristic::init(unsigned int size, unsigned int agents)
 {
     h_values.clear();
     h_values.resize(size);
-    for(int i = 0; i < size; i++)
+    for(unsigned int i = 0; i < size; i++)
         h_values[i].resize(agents, -1);
 }
 

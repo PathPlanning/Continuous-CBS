@@ -12,7 +12,7 @@ public:
 
     SIPP()  {}
     ~SIPP() {}
-    Path find_path(Agent agent, const Map &map, std::list<Constraint> cons, Heuristic &h_values, int tree_size = -1);
+    Path find_path(Agent agent, const Map &map, std::list<Constraint> cons, Heuristic &h_values);
 
 private:
     Agent agent;

@@ -39,7 +39,7 @@ struct gNode
 struct Node
 {
     int     id;
-    double  i, j, f, g;
+    double  f, g, i, j;
     Node*   parent;
     std::pair<double, double> interval;
 
@@ -66,7 +66,7 @@ struct Path
     int agentID;
     int expanded;
     Path(std::vector<Node> _nodes = std::vector<Node>(0), double _cost = -1, int _agentID = -1)
-        : nodes(_nodes), cost(_cost), agentID(_agentID) {}
+        : nodes(_nodes), cost(_cost), agentID(_agentID) {expanded = 0;}
 };
 
 struct Constraint
@@ -114,7 +114,7 @@ struct Step
     int j;
     int id;
     double cost;
-    Step(const Node& node): i(node.i), j(node.j), id(node.id), cost(node.g) {}
+    //Step(const Node& node): i(node.i), j(node.j), id(node.id), cost(node.g) {}
     Step(int _i = 0, int _j = 0, int _id = 0, double _cost = -1.0): i(_i), j(_j), id(_id), cost(_cost) {}
 };
 
@@ -125,6 +125,7 @@ struct Conflict
     Move move1, move2;
     double overcost;
     int type;
+    Path path1, path2;
     Conflict(int _agent1 = -1, int _agent2 = -1, Move _move1 = Move(), Move _move2 = Move(), double _t = CN_INFINITY)
         : agent1(_agent1), agent2(_agent2), t(_t), move1(_move1), move2(_move2) {overcost = 0; type = 0;}
 };
@@ -140,10 +141,10 @@ struct CBS_Node
     double cost;
     double f;
     std::vector<int> cons_num;
-    int conflicts_num;
+    unsigned int conflicts_num;
     bool look_for_cardinal;
-    int total_cons;
-    int low_level_expanded;
+    unsigned int total_cons;
+    unsigned int low_level_expanded;
     std::list<Conflict> conflicts;
     std::list<Conflict> semicard_conflicts;
     std::list<Conflict> cardinal_conflicts;
@@ -177,10 +178,10 @@ struct Open_Elem
     int id;
     double cost;
     double f;
-    int cons_num;
-    int conflicts_num;
+    unsigned int cons_num;
+    unsigned int conflicts_num;
 
-    Open_Elem(CBS_Node* _tree_pointer = nullptr, int _id = -1, double _cost = -1, double _f = -1, int _cons_num = -1, int _conflicts_num = -1)
+    Open_Elem(CBS_Node* _tree_pointer = nullptr, int _id = -1, double _cost = -1, double _f = -1, unsigned int _cons_num = 0, unsigned int _conflicts_num = 0)
         : tree_pointer(_tree_pointer), id(_id), cost(_cost), f(_f), cons_num(_cons_num), conflicts_num(_conflicts_num) {}
     ~Open_Elem()
     {
@@ -195,7 +196,7 @@ typedef multi_index_container<
         Open_Elem,
         indexed_by<
                     //ordered_non_unique<tag<cost>, BOOST_MULTI_INDEX_MEMBER(Open_Elem, double, cost)>,
-                    ordered_non_unique<composite_key<Open_Elem, BOOST_MULTI_INDEX_MEMBER(Open_Elem, double, cost), BOOST_MULTI_INDEX_MEMBER(Open_Elem, int, conflicts_num), BOOST_MULTI_INDEX_MEMBER(Open_Elem, int, cons_num)>,
+                    ordered_non_unique<composite_key<Open_Elem, BOOST_MULTI_INDEX_MEMBER(Open_Elem, double, cost), BOOST_MULTI_INDEX_MEMBER(Open_Elem, unsigned int, conflicts_num), BOOST_MULTI_INDEX_MEMBER(Open_Elem, size_t, cons_num)>,
                     composite_key_compare<std::less<double>, std::less<int>, std::greater<int>>>,
                     hashed_unique<tag<id>, BOOST_MULTI_INDEX_MEMBER(Open_Elem, int, id)>
         >
@@ -204,10 +205,10 @@ typedef multi_index_container<
 struct Focal_Elem
 {
     int id;
-    int conflicts_num;
-    int constraints;
+    unsigned int conflicts_num;
+    unsigned int constraints;
     double cost;
-    Focal_Elem(int id_=-1, int conflicts_num_=-1, int constraints_ = 0, double cost_ = 0):id(id_), conflicts_num(conflicts_num_), constraints(constraints_), cost(cost_){}
+    Focal_Elem(int id_=-1, unsigned int conflicts_num_ = 0, unsigned int constraints_ = 0, double cost_ = 0):id(id_), conflicts_num(conflicts_num_), constraints(constraints_), cost(cost_){}
     bool operator <(const Focal_Elem& other) const
     {
         if(this->conflicts_num < other.conflicts_num)
@@ -248,15 +249,14 @@ typedef multi_index_container<
 class CBS_Tree
 {
     std::list<CBS_Node> tree;
-    std::list<Open_Elem> open;
     Focal_container focal;
     CT_container container;
     double focal_weight;
     int open_size;
     std::set<int> closed;
 public:
-    CBS_Tree() { open_size = 0; open.clear(); focal_weight = 1.0; }
-    int get_size()
+    CBS_Tree() { open_size = 0; focal_weight = 1.0; }
+    unsigned int get_size()
     {
         return tree.size();
     }

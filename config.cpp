@@ -63,12 +63,12 @@ void Config::getConfig(const char *fileName)
     }
     else
     {
-        auto value = element->GetText();
-        if(value == "true" || value == "1")
+        std::string value = element->GetText();
+        if(value.compare("true") == 0 || value.compare("1") == 0)
         {
             use_cardinal = true;
         }
-        else if(value == "false" || value == "0")
+        if(value.compare("false") == 0 || value.compare("0") == 0)
         {
             use_cardinal = false;
         }

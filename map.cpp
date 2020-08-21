@@ -114,7 +114,7 @@ bool Map::get_grid(const char* FileName)
         }
         else if (value == CNS_TAG_GRID)
         {
-            int rowiter(0), grid_i(0), grid_j(0);
+            int grid_i(0), grid_j(0);
             hasGrid = true;
             if (!(hasHeight && hasWidth))
             {
@@ -140,12 +140,12 @@ bool Map::get_grid(const char* FileName)
                 std::string item;
                 while (std::getline(ss, item, ' '))
                     elems.push_back(item);
-                rowiter = grid_j = 0;
+                grid_j = 0;
                 int val;
                 if (elems.size() > 0)
                     for (grid_j = 0; grid_j < width; ++grid_j)
                     {
-                        if (grid_j == elems.size())
+                        if (grid_j == int(elems.size()))
                             break;
                         stream.str("");
                         stream.clear();
@@ -261,7 +261,7 @@ bool Map::get_roadmap(const char *FileName)
         Node node;
         std::vector<Node> neighbors;
         neighbors.clear();
-        for(int i = 0; i < cur.neighbors.size(); i++)
+        for(unsigned int i = 0; i < cur.neighbors.size(); i++)
         {
             node.i = nodes[cur.neighbors[i]].i;
             node.j = nodes[cur.neighbors[i]].j;
@@ -270,7 +270,7 @@ bool Map::get_roadmap(const char *FileName)
         }
         valid_moves.push_back(neighbors);
     }
-    size = nodes.size();
+    size = int(nodes.size());
     return true;
 }
 
@@ -322,12 +322,12 @@ bool Map::check_line(int x1, int y1, int x2, int y2)
     int step_x(x1 < x2 ? 1 : -1);
     int step_y(y1 < y2 ? 1 : -1);
     int error(0), x(x1), y(y1);
-    int gap = agent_size*sqrt(pow(delta_x, 2) + pow(delta_y, 2)) + double(delta_x + delta_y)/2 - CN_EPSILON;
+    int gap = int(agent_size*sqrt(pow(delta_x, 2) + pow(delta_y, 2)) + double(delta_x + delta_y)/2 - CN_EPSILON);
     int k, num;
 
     if(delta_x > delta_y)
     {
-        int extraCheck = agent_size*delta_y/sqrt(pow(delta_x, 2) + pow(delta_y, 2)) + 0.5 - CN_EPSILON;
+        int extraCheck = int(agent_size*delta_y/sqrt(pow(delta_x, 2) + pow(delta_y, 2)) + 0.5 - CN_EPSILON);
         for(int n = 1; n <= extraCheck; n++)
         {
             error += delta_y;
@@ -368,7 +368,7 @@ bool Map::check_line(int x1, int y1, int x2, int y2)
     }
     else
     {
-        int extraCheck = agent_size*delta_x/sqrt(pow(delta_x, 2) + pow(delta_y, 2)) + 0.5 - CN_EPSILON;
+        int extraCheck = int(agent_size*delta_x/sqrt(pow(delta_x, 2) + pow(delta_y, 2)) + 0.5 - CN_EPSILON);
         for(int n = 1; n <= extraCheck; n++)
         {
             error += delta_x;
