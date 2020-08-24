@@ -196,7 +196,7 @@ typedef multi_index_container<
         Open_Elem,
         indexed_by<
                     //ordered_non_unique<tag<cost>, BOOST_MULTI_INDEX_MEMBER(Open_Elem, double, cost)>,
-                    ordered_non_unique<composite_key<Open_Elem, BOOST_MULTI_INDEX_MEMBER(Open_Elem, double, cost), BOOST_MULTI_INDEX_MEMBER(Open_Elem, unsigned int, conflicts_num), BOOST_MULTI_INDEX_MEMBER(Open_Elem, size_t, cons_num)>,
+                    ordered_non_unique<composite_key<Open_Elem, BOOST_MULTI_INDEX_MEMBER(Open_Elem, double, cost), BOOST_MULTI_INDEX_MEMBER(Open_Elem, unsigned int, conflicts_num), BOOST_MULTI_INDEX_MEMBER(Open_Elem, unsigned int, cons_num)>,
                     composite_key_compare<std::less<double>, std::less<int>, std::greater<int>>>,
                     hashed_unique<tag<id>, BOOST_MULTI_INDEX_MEMBER(Open_Elem, int, id)>
         >
