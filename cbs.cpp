@@ -168,7 +168,7 @@ double CBS::get_hl_heuristic(const std::list<Conflict> &conflicts)
         values.reserve(conflicts.size());
         std::set<int> used;
         for(auto c:conflicts)
-            values.push_back({c.overcost, c.agent1, c.agent2});
+            values.push_back(std::make_tuple(c.overcost, c.agent1, c.agent2));
         std::sort(values.begin(), values.end(), std::greater<std::tuple<double, int, int>>());
         for(auto v: values)
         {
