@@ -7,7 +7,7 @@ void SIPP::clear()
     collision_intervals.clear();
     landmarks.clear();
     constraints.clear();
-    positive_constraints.clear();
+    visited.clear();
     path.cost = -1;
 }
 
@@ -42,10 +42,17 @@ void SIPP::find_successors(Node curNode, const Map &map, std::list<Node> &succs,
             intervals.push_back(interval);
         }
         else
-            intervals.push_back({newNode.g, CN_INFINITY});
+            intervals.push_back({0, CN_INFINITY});
         auto cons_it = constraints.find({curNode.id, newNode.id});
+        int id(0);
         for(auto interval: intervals)
         {
+            newNode.interval_id = id;
+            id++;
+            auto it = visited.find(newNode.id + newNode.interval_id * map.get_size());
+            if(it != visited.end())
+                if(it->second.second)
+                    continue;
             if(interval.second < newNode.g)
                 continue;
             if(interval.first > newNode.g)
@@ -57,12 +64,21 @@ void SIPP::find_successors(Node curNode, const Map &map, std::list<Node> &succs,
             newNode.interval = interval;
             if(newNode.g - cost > curNode.interval.second || newNode.g > newNode.interval.second)
                 continue;
+            if(it != visited.end())
+            {
+                if(it->second.first - CN_EPSILON < newNode.g)
+                    continue;
+                else
+                    it->second.first = newNode.g;
+            }
+            else
+                visited.insert({newNode.id + newNode.interval_id * map.get_size(), {newNode.g, false}});
             if(goal.id == agent.goal_id) //perfect heuristic is known
                 newNode.f = newNode.g + h_values.get_value(newNode.id, agent.id);
             else
             {
                 double h = sqrt(pow(goal.i - newNode.i, 2) + pow(goal.j - newNode.j, 2));
-                for(unsigned int i = 0; i < h_values.get_size(); i++) //differential heuristic with up to 10 pivots
+                for(unsigned int i = 0; i < h_values.get_size(); i++) //differential heuristic with pivots placed to agents goals
                     h = std::max(h, fabs(h_values.get_value(newNode.id, i) - h_values.get_value(goal.id, i)));
                 newNode.f = newNode.g + h;
             }
@@ -80,48 +96,25 @@ Node SIPP::find_min()
 
 void SIPP::add_open(Node newNode)
 {
-    std::list<Node>::iterator iter, pos;
-    bool pos_found = false;
-    if (open.empty())
+    if (open.empty() || open.back().f - CN_EPSILON < newNode.f)
     {
         open.push_back(newNode);
         return;
     }
-    for(iter = open.begin(); iter != open.end(); ++iter)
+    for(auto iter = open.begin(); iter != open.end(); ++iter)
     {
-        if (!pos_found)
+        if(iter->f > newNode.f + CN_EPSILON) // if newNode.f has lower f-value
         {
-            if(iter->f > newNode.f + CN_EPSILON) // if newNode.f has lower f-value
-            {
-                pos = iter;
-                pos_found = true;
-            }
-            else if(fabs(iter->f - newNode.f) < CN_EPSILON && newNode.g + CN_EPSILON > iter->g) // if f-values are equal, compare g-values
-            {
-                pos = iter;
-                pos_found = true;
-            }
+            open.insert(iter, newNode);
+            return;
         }
-        if (iter->id == newNode.id && fabs(iter->interval.second - newNode.interval.second) < CN_EPSILON)
+        else if(fabs(iter->f - newNode.f) < CN_EPSILON && newNode.g + CN_EPSILON > iter->g) // if f-values are equal, compare g-values
         {
-            if(newNode.f > iter->f - CN_EPSILON)
-                return;
-            if(pos == iter)
-            {
-                iter->f = newNode.f;
-                iter->g = newNode.g;
-                iter->interval = newNode.interval;
-                iter->parent = newNode.parent;
-                return;
-            }
-            open.erase(iter);
-            break;
+            open.insert(iter, newNode);
+            return;
         }
     }
-    if(pos_found)
-        open.insert(pos, newNode);
-    else
-        open.push_back(newNode);
+    open.push_back(newNode);
     return;
 }
 
@@ -234,7 +227,7 @@ void SIPP::make_constraints(std::list<Constraint> &cons)
             else
                 add_move_constraint(Move(con));
         }
-        else if(con.agent == agent.id)
+        else
         {
             bool inserted = false;
             for(unsigned int i = 0; i < landmarks.size(); i++)
@@ -246,10 +239,6 @@ void SIPP::make_constraints(std::list<Constraint> &cons)
                 }
             if(!inserted)
                 landmarks.push_back(Move(con.t1, con.t2, con.i1, con.j1, con.i2, con.j2, con.id1, con.id2));
-        }
-        else
-        {
-            positive_constraints.push_back(Move(con.t1, con.t2, con.i1, con.j1, con.i2, con.j2, con.id1, con.id2));
         }
     }
 }
@@ -267,18 +256,24 @@ std::vector<Path> SIPP::find_partial_path(std::vector<Node> starts, std::vector<
     open.clear();
     close.clear();
     path.cost = -1;
+    visited.clear();
     std::vector<Path> paths(goals.size());
     int pathFound(0);
     for(auto s:starts)
     {
         s.parent = nullptr;
         open.push_back(s);
+        visited.insert({s.id + s.interval_id * map.get_size(), {s.g, false}});
     }
     Node curNode;
     while(!open.empty())
     {
         curNode = find_min();
-        close.insert({curNode.id, curNode});
+        auto v = visited.find(curNode.id + curNode.interval_id * map.get_size());
+        if(v->second.second)
+            continue;
+        v->second.second = true;
+        auto parent = &close.insert({curNode.id + curNode.interval_id * map.get_size(), curNode}).first->second;
         if(curNode.id == goals[0].id)
         {
             for(unsigned int i = 0; i < goals.size(); i++)
@@ -301,7 +296,6 @@ std::vector<Path> SIPP::find_partial_path(std::vector<Node> starts, std::vector<
         succs.clear();
         find_successors(curNode, map, succs, h_values, Node(goals[0].id, 0, 0, goals[0].i, goals[0].j));
         std::list<Node>::iterator it = succs.begin();
-        auto parent = &(close.find(curNode.id)->second);
         while(it != succs.end())
         {
             if(it->f > max_f)
@@ -309,17 +303,8 @@ std::vector<Path> SIPP::find_partial_path(std::vector<Node> starts, std::vector<
                 it++;
                 continue;
             }
-            bool has = false;
             it->parent = parent;
-            auto range = close.equal_range(it->id);
-            for(auto i = range.first; i != range.second; i++)
-                if(i->second.interval.first - CN_EPSILON < it->interval.first && i->second.interval.second + CN_EPSILON > it->interval.second)
-                {
-                    has = true;
-                    break;
-                }
-            if(!has)
-                add_open(*it);
+            add_open(*it);
             it++;
         }
     }

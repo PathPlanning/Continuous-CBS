@@ -30,14 +30,13 @@ private:
     std::vector<Node> get_endpoints(int node_id, double node_i, double node_j, double t1, double t2);
     double check_endpoint(Node start, Node goal);
 
-    std::unordered_multimap<int, Node> close;
+    std::unordered_map<int, Node> close;
     std::list<Node> open;
-    //Open_List open;
-    Path path;
+    std::unordered_map<int, std::pair<double, bool>> visited;
     std::map<std::pair<int, int>, std::vector<Move>> constraints;//stores sets of constraints associated with moves
-    std::map<int, std::vector<std::pair<double, double>>> collision_intervals;//stores sets of collision intervals associated with cells
-    std::vector<Move> positive_constraints;
+    std::unordered_map<int, std::vector<std::pair<double, double>>> collision_intervals;//stores sets of collision intervals associated with cells
     std::vector<Move> landmarks;
+    Path path;
 };
 
 #endif // SIPP_H

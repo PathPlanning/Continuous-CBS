@@ -42,9 +42,9 @@ struct Node
     double  f, g, i, j;
     Node*   parent;
     std::pair<double, double> interval;
-
+    int interval_id;
     Node(int _id = -1, double _f = -1, double _g = -1, double _i = -1, double _j = -1, Node* _parent = nullptr, double begin = -1, double end = -1)
-        :id(_id), f(_f), g(_g), i(_i), j(_j), parent(_parent), interval(std::make_pair(begin, end)) {}\
+        :id(_id), f(_f), g(_g), i(_i), j(_j), parent(_parent), interval(std::make_pair(begin, end)) {interval_id = 0;}
     bool operator <(const Node& other) const //required for heuristic calculation
     {
         return this->g < other.g;
@@ -128,6 +128,10 @@ struct Conflict
     Path path1, path2;
     Conflict(int _agent1 = -1, int _agent2 = -1, Move _move1 = Move(), Move _move2 = Move(), double _t = CN_INFINITY)
         : agent1(_agent1), agent2(_agent2), t(_t), move1(_move1), move2(_move2) {overcost = 0; type = 0;}
+    bool operator < (const Conflict& other)
+    {
+        return this->overcost < other.overcost;
+    }
 };
 
 struct CBS_Node
@@ -139,7 +143,7 @@ struct CBS_Node
     int id;
     std::string id_str;
     double cost;
-    double f;
+    double f,h;
     std::vector<int> cons_num;
     unsigned int conflicts_num;
     bool look_for_cardinal;
@@ -154,6 +158,7 @@ struct CBS_Node
     {
         low_level_expanded = 0;
         conflicts = {};
+        h = 0;
         if(paths.size() == 1)
         {
             cons_num[paths[0].agentID]++;

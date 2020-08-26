@@ -7,6 +7,8 @@
 #include "config.h"
 #include "sipp.h"
 #include "heuristic.h"
+#include "simplex/simplex.h"
+#include "simplex/pilal.h"
 
 class CBS
 {
@@ -22,6 +24,7 @@ private:
     Conflict check_conflicts(std::vector<Path> &paths, std::vector<int> conflicting_agents, std::vector<std::pair<int, int> > conflicting_pairs);
     Conflict check_paths(Path pathA, Path pathB);
     bool check_conflict(Move move1, Move move2);
+    double get_hl_heuristic(const std::list<Conflict> &conflicts);
     std::vector<Conflict> get_all_conflicts(std::vector<Path> &paths, int id);
     Constraint get_constraint(int agent, Move move1, Move move2);
     Constraint get_wait_constraint(int agent, Move move1, Move move2);

@@ -133,6 +133,55 @@ Constraint CBS::get_wait_constraint(int agent, Move move1, Move move2)
     return Constraint(agent, interval.first, interval.second, move1.i1, move1.j1, move1.i2, move1.j2, move1.id1, move1.id2);
 }
 
+double CBS::get_hl_heuristic(const std::list<Conflict> &conflicts)
+{
+    if(conflicts.empty() || CN_HLH_TYPE == 0)
+        return 0;
+    else if (CN_HLH_TYPE == 1)
+    {
+        optimization::Simplex simplex("simplex");
+        std::map<int, int> colliding_agents;
+        for(auto c: conflicts)
+        {
+            colliding_agents.insert({c.agent1, colliding_agents.size()});
+            colliding_agents.insert({c.agent2, colliding_agents.size()});
+        }
+
+        pilal::Matrix coefficients(conflicts.size(), colliding_agents.size(), 0);
+        std::vector<double> overcosts(conflicts.size());
+        int i(0);
+        for(auto c:conflicts)
+        {
+            coefficients.at(i, colliding_agents.at(c.agent1)) = 1;
+            coefficients.at(i, colliding_agents.at(c.agent2)) = 1;
+            overcosts[i] = c.overcost;
+            i++;
+        }
+        simplex.set_problem(coefficients, overcosts);
+        simplex.solve();
+        return simplex.get_solution();
+    }
+    else
+    {
+        double h_value(0);
+        std::vector<std::tuple<double, int, int>> values;
+        values.reserve(conflicts.size());
+        std::set<int> used;
+        for(auto c:conflicts)
+            values.push_back({c.overcost, c.agent1, c.agent2});
+        std::sort(values.begin(), values.end(), std::greater<std::tuple<double, int, int>>());
+        for(auto v: values)
+        {
+            if(used.find(get<1>(v)) != used.end() || used.find(get<2>(v)) != used.end())
+                continue;
+            h_value += get<0>(v);
+            used.insert(get<1>(v));
+            used.insert(get<2>(v));
+        }
+        return h_value;
+    }
+}
+
 Constraint CBS::get_constraint(int agent, Move move1, Move move2)
 {
     if(move1.id1 == move1.id2)
@@ -217,6 +266,7 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
     {
         auto parent = tree.get_front();
         node = *parent;
+        node.cost -= node.h;
         parent->conflicts.clear();
         parent->cardinal_conflicts.clear();
         parent->semicard_conflicts.clear();
@@ -231,7 +281,6 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
         {
             break; //i.e. no conflicts => solution found
         }
-
         if(!cardinal_conflicts.empty())
         {
             conflict = get_conflict(cardinal_conflicts);
@@ -271,48 +320,51 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
 
         bool inserted = false;
         bool left_ok = true, right_ok = true;
-        int agent1positives(0), agent2positives(0);
-        for(auto c: constraintsA)
-            if(c.positive)
-                agent1positives++;
-        for(auto c: constraintsB)
-            if(c.positive)
-                agent2positives++;
-        if(conflict.move1.id1 != conflict.move1.id2 && agent2positives > agent1positives && pathA.cost > 0)
+        if(CN_USE_DS)
         {
-            positive = Constraint(conflict.agent1, constraintA.t1, constraintA.t2, conflict.move1.i1, conflict.move1.j1, conflict.move1.i2, conflict.move1.j2, conflict.move1.id1, conflict.move1.id2, true);
-            if(check_positive_constraints(constraintsA, positive))
+            int agent1positives(0), agent2positives(0);
+            for(auto c: constraintsA)
+                if(c.positive)
+                    agent1positives++;
+            for(auto c: constraintsB)
+                if(c.positive)
+                    agent2positives++;
+            if(conflict.move1.id1 != conflict.move1.id2 && agent2positives > agent1positives && pathA.cost > 0)
             {
-                left.positive_constraint = positive;
-                constraintsB.push_back(left.positive_constraint);
-                inserted = true;
+                positive = Constraint(conflict.agent1, constraintA.t1, constraintA.t2, conflict.move1.i1, conflict.move1.j1, conflict.move1.i2, conflict.move1.j2, conflict.move1.id1, conflict.move1.id2, true);
+                if(check_positive_constraints(constraintsA, positive))
+                {
+                    left.positive_constraint = positive;
+                    constraintsB.push_back(left.positive_constraint);
+                    inserted = true;
+                }
+                //else
+                //    right_ok = false;
             }
-            //else
-            //    right_ok = false;
-        }
-        if(conflict.move2.id1 != conflict.move2.id2 && !inserted && pathB.cost > 0)
-        {
-            positive = Constraint(conflict.agent2, constraintB.t1, constraintB.t2, conflict.move2.i1, conflict.move2.j1, conflict.move2.i2, conflict.move2.j2, conflict.move2.id1, conflict.move2.id2, true);
-            if(check_positive_constraints(constraintsB, positive))
+            if(conflict.move2.id1 != conflict.move2.id2 && !inserted && pathB.cost > 0)
             {
-                right.positive_constraint = positive;
-                constraintsA.push_back(right.positive_constraint);
-                inserted = true;
+                positive = Constraint(conflict.agent2, constraintB.t1, constraintB.t2, conflict.move2.i1, conflict.move2.j1, conflict.move2.i2, conflict.move2.j2, conflict.move2.id1, conflict.move2.id2, true);
+                if(check_positive_constraints(constraintsB, positive))
+                {
+                    right.positive_constraint = positive;
+                    constraintsA.push_back(right.positive_constraint);
+                    inserted = true;
+                }
+                //else
+                //    left_ok = false;
             }
-            //else
-            //    left_ok = false;
-        }
-        if(conflict.move1.id1 != conflict.move1.id2 && !inserted && pathA.cost > 0)
-        {
-            positive = Constraint(conflict.agent1, constraintA.t1, constraintA.t2, conflict.move1.i1, conflict.move1.j1, conflict.move1.i2, conflict.move1.j2, conflict.move1.id1, conflict.move1.id2, true);
-            if(check_positive_constraints(constraintsA, positive))
+            if(conflict.move1.id1 != conflict.move1.id2 && !inserted && pathA.cost > 0)
             {
-                inserted = true;
-                left.positive_constraint = positive;
-                constraintsB.push_back(left.positive_constraint);
+                positive = Constraint(conflict.agent1, constraintA.t1, constraintA.t2, conflict.move1.i1, conflict.move1.j1, conflict.move1.i2, conflict.move1.j2, conflict.move1.id1, conflict.move1.id2, true);
+                if(check_positive_constraints(constraintsA, positive))
+                {
+                    inserted = true;
+                    left.positive_constraint = positive;
+                    constraintsB.push_back(left.positive_constraint);
+                }
+                //else
+                //    right_ok = false;
             }
-            //else
-            //    right_ok = false;
         }
         right.id_str = node.id_str + "0";
         left.id_str = node.id_str + "1";
@@ -325,16 +377,24 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
             time_spent = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - time_now);
             time += time_spent.count();
             if(right.cost > 0)
+            {
+                right.h = get_hl_heuristic(right.cardinal_conflicts);
+                right.cost += right.h;
                 tree.add_node(right);
+            }
         }
         if(left_ok && pathB.cost > 0 && validate_constraints(constraintsB, pathB.agentID))
         {
             time_now = std::chrono::high_resolution_clock::now();
             find_new_conflicts(map, task, left, paths, pathB, conflicts, semicard_conflicts, cardinal_conflicts, low_level_searches, low_level_expanded);
             time_spent = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - time_now);
-            time += time_spent.count();
+            time += time_spent.count();           
             if(left.cost > 0)
+            {
+                left.h = get_hl_heuristic(left.cardinal_conflicts);
+                left.cost += left.h;
                 tree.add_node(left);
+            }
         }
         time_spent = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t);
         if(time_spent.count() > config.timelimit)
