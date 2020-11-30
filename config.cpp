@@ -8,6 +8,7 @@ Config::Config()
     timelimit = CN_TIMELIMIT;
     focal_weight = CN_FOCAL_WEIGHT;
     precision = CN_PRECISION;
+    plan_for_turns = CN_PLANFORTURNS;
 }
 
 
@@ -63,12 +64,12 @@ void Config::getConfig(const char *fileName)
     }
     else
     {
-        std::string value = element->GetText();
-        if(value.compare("true") == 0 || value.compare("1") == 0)
+        auto value = element->GetText();
+        if(value == "true" || value == "1")
         {
             use_cardinal = true;
         }
-        if(value.compare("false") == 0 || value.compare("0") == 0)
+        else if(value == "false" || value == "0")
         {
             use_cardinal = false;
         }

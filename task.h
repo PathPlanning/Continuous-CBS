@@ -18,10 +18,11 @@ private:
     std::vector<Agent> agents;
 public:
     bool get_task(const char* FileName, int k=-1);
-    unsigned int get_agents_size() const { return agents.size(); }
+    int get_agents_size() const { return agents.size(); }
     void make_ids(int width);
     void make_ij(const Map &map);
     Agent get_agent(int id) const;
+    std::ofstream out;
     void print_task()
     {
         //for(int i=0; i<agents.size(); i++)

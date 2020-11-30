@@ -18,6 +18,7 @@ public:
     int     connectdness;
     double  agent_size;
     double  timelimit;
+    bool    plan_for_turns;
 };
 
 #endif // CONFIG_H

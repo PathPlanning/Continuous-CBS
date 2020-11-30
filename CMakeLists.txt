@@ -19,13 +19,7 @@ set( SOURCE_FILES
      heuristic.cpp 
      sipp.cpp 
      task.cpp
-     cbs.cpp 
-	 simplex/columnset.cpp
-	 simplex/constraint.cpp
-	 simplex/matrix.cpp
-	 simplex/objectivefunction.cpp
-	 simplex/simplex.cpp
-	 simplex/variable.cpp)
+     cbs.cpp )
 
 set( HEADER_FILES 
      const.h  
@@ -37,23 +31,6 @@ set( HEADER_FILES
      sipp.h 
      task.h
      cbs.h
-	 structs.h
-	 simplex/columnset.h
-	 simplex/constraint.h
-	 simplex/datamismatchexception.h
-	 simplex/divisionbyzeroexception.h
-	 simplex/indexoutofboundexception.h
-	 simplex/matrix.h
-	 simplex/matrixissingularexception.h
-	 simplex/matrixnotsquareexception.h
-     simplex/memoryreachedoutexception.h
-     simplex/notavectorexception.h
-     simplex/objectivefunction.h
-     simplex/pilal.h
-     simplex/pilalexceptions.h
-	 simplex/simplex.h
-	 simplex/simplexexceptions.h
-	 simplex/sizemismatchexception.h
-	 simplex/variable.h)
+	 structs.h)
 
 add_executable( CCBS ${SOURCE_FILES} ${HEADER_FILES} )

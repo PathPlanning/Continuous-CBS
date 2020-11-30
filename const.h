@@ -1,23 +1,36 @@
 #ifndef CONST_H
 #define CONST_H
 
-#define CN_USE_CARDINAL  1
-#define CN_HLH_TYPE      0
-#define CN_USE_DS        0
-#define CN_TIMELIMIT     30 // in seconds
-#define CN_AGENT_SIZE    sqrt(2.0)/4.0 //radius; only values in range (0; 0.5] are supported
-#define CN_CONNECTEDNESS 2
-#define CN_PRECISION     0.00001
-#define CN_FOCAL_WEIGHT  1.0
-#define CN_OBSTL         1
-#define CN_EPSILON       1e-8
-#define CN_INFINITY		 1e+8
-#define CN_LOG           "_log"
+#define CN_USE_CARDINAL     1
+#define CN_TIMELIMIT        30 // in seconds
+#define CN_AGENT_SIZE       0.49999 //radius
+#define CN_CONNECTEDNESS    3
+#define CN_PRECISION        0.0000001
+#define CN_PLANFORTURNS     false
+#define CN_FOCAL_WEIGHT     1.0
+#define CN_OBSTL            1
+#define CN_EPSILON          1e-8
+#define CN_DELTA            1e-6
+#define CN_INFINITY         1e+8
+#define CN_LOG              "_log"
+#define CN_DEFAULT_SIZE     0.49999
+#define CN_DEFAULT_RSPEED   1.0
+#define CN_DEFAULT_MSPEED   1.0
+#define CN_DEFAULT_SHEADING 0
+#define CN_DEFAULT_GHEADING -1 //i.e. whatever
+#define CN_HEADING_WHATEVER -1
+#define CNS_HEADING_WHATEVER    "whatever"
 
 //XML file tags
 #define CNS_TAG_ROOT                "root"
     #define CNS_TAG_ALGORITHM       "algorithm"
     #define CNS_TAG_MAP             "map"
+    #define CNS_TAG_DEF_PARAMS      "defaultparameters"
+    #define CNS_TAG_ATTR_SIZE       "size"
+    #define CNS_TAG_ATTR_RSPEED     "rotationspeed"
+    #define CNS_TAG_ATTR_MSPEED     "movespeed"
+    #define CNS_TAG_ATTR_SHEADING   "start.heading"
+    #define CNS_TAG_ATTR_GHEADING   "goal.heading"
     #define CNS_TAG_AGENTS          "agents"
     #define CNS_TAG_HEIGHT          "height"
     #define CNS_TAG_WIDTH           "width"
@@ -61,8 +74,9 @@
     #define CNS_TAG_ATTR_VALUE          "value"
     #define CNS_TAG_ATTR_SX             "start.x"
     #define CNS_TAG_ATTR_SY             "start.y"
-    #define CNS_TAG_ATTR_FX             "finish.x"
-    #define CNS_TAG_ATTR_FY             "finish.y"
+    #define CNS_TAG_ATTR_GX             "goal.x"
+    #define CNS_TAG_ATTR_GY             "goal.y"
+    #define CNS_TAG_ATTR_ID             "id"
     #define CNS_TAG_ATTR_FLOWTIME       "flowtime"
     #define CNS_TAG_ATTR_MAKESPAN       "makespan"
 

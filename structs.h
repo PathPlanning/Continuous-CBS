@@ -22,7 +22,12 @@ struct Agent
     double start_i, start_j, goal_i, goal_j;
     int start_id, goal_id;
     int id;
+    std::string task_id;
     double size;
+    double mspeed;
+    double rspeed;
+    double start_heading;
+    double goal_heading;
     Agent(int s_id = -1, int g_id = -1, int _id = -1)
         :start_id(s_id), goal_id(g_id), id(_id) {}
 };
@@ -39,12 +44,13 @@ struct gNode
 struct Node
 {
     int     id;
-    double  f, g, i, j;
+    double  i, j, f, g;
     Node*   parent;
+    double  heading;
     std::pair<double, double> interval;
-    int interval_id;
+
     Node(int _id = -1, double _f = -1, double _g = -1, double _i = -1, double _j = -1, Node* _parent = nullptr, double begin = -1, double end = -1)
-        :id(_id), f(_f), g(_g), i(_i), j(_j), parent(_parent), interval(std::make_pair(begin, end)) {interval_id = 0;}
+        :id(_id), f(_f), g(_g), i(_i), j(_j), parent(_parent), interval(std::make_pair(begin, end)) {}\
     bool operator <(const Node& other) const //required for heuristic calculation
     {
         return this->g < other.g;
@@ -66,7 +72,7 @@ struct Path
     int agentID;
     int expanded;
     Path(std::vector<Node> _nodes = std::vector<Node>(0), double _cost = -1, int _agentID = -1)
-        : nodes(_nodes), cost(_cost), agentID(_agentID) {expanded = 0;}
+        : nodes(_nodes), cost(_cost), agentID(_agentID) {}
 };
 
 struct Constraint
@@ -75,17 +81,12 @@ struct Constraint
     double t1, t2; // prohibited to start moving from (i1, j1) to (i2, j2) during interval (t1, t2)
     double i1, j1, i2, j2; // in case of node constraint i1==i2, j1==j2.
     int id1, id2;
-    bool positive;
-    Constraint(int _agent = -1, double _t1 = -1, double _t2 = -1, double _i1 = -1, double _j1 = -1, double _i2 = -1, double _j2 = -1, int _id1 = -1, int _id2 = -1, bool _positive = false)
-        : agent(_agent), t1(_t1), t2(_t2), i1(_i1), j1(_j1), i2(_i2), j2(_j2), id1(_id1), id2(_id2), positive(_positive) {}
+    Constraint(int _agent = -1, double _t1 = -1, double _t2 = -1, double _i1 = -1, double _j1 = -1, double _i2 = -1, double _j2 = -1, int _id1 = -1, int _id2 = -1)
+        : agent(_agent), t1(_t1), t2(_t2), i1(_i1), j1(_j1), i2(_i2), j2(_j2), id1(_id1), id2(_id2){}
     friend std::ostream& operator <<(std::ostream& os, const Constraint& con)
     {
         os<<con.agent<<" "<<con.t1<<" "<<con.t2<<" "<<con.i1<<" "<<con.j1<<" "<<con.i2<<" "<<con.j2<<"\n";
         return os;
-    }
-    bool operator <(const Constraint& other) const
-    {
-        return t1 < other.t1;
     }
 };
 
@@ -114,7 +115,7 @@ struct Step
     int j;
     int id;
     double cost;
-    //Step(const Node& node): i(node.i), j(node.j), id(node.id), cost(node.g) {}
+    Step(const Node& node): i(node.i), j(node.j), id(node.id), cost(node.g) {}
     Step(int _i = 0, int _j = 0, int _id = 0, double _cost = -1.0): i(_i), j(_j), id(_id), cost(_cost) {}
 };
 
@@ -124,14 +125,8 @@ struct Conflict
     double t;
     Move move1, move2;
     double overcost;
-    int type;
-    Path path1, path2;
-    Conflict(int _agent1 = -1, int _agent2 = -1, Move _move1 = Move(), Move _move2 = Move(), double _t = CN_INFINITY)
-        : agent1(_agent1), agent2(_agent2), t(_t), move1(_move1), move2(_move2) {overcost = 0; type = 0;}
-    bool operator < (const Conflict& other)
-    {
-        return this->overcost < other.overcost;
-    }
+    Conflict(int _agent1 = -1, int _agent2 = -1, Move _move1 = Move(), Move _move2 = Move(), double _t = -1)
+        : agent1(_agent1), agent2(_agent2), t(_t), move1(_move1), move2(_move2) {overcost=0;}
 };
 
 struct CBS_Node
@@ -139,16 +134,14 @@ struct CBS_Node
     std::vector<Path> paths;
     CBS_Node* parent;
     Constraint constraint;
-    Constraint positive_constraint;
     int id;
-    std::string id_str;
     double cost;
-    double f,h;
+    double f;
     std::vector<int> cons_num;
-    unsigned int conflicts_num;
+    int conflicts_num;
     bool look_for_cardinal;
-    unsigned int total_cons;
-    unsigned int low_level_expanded;
+    int total_cons;
+    int low_level_expanded;
     std::list<Conflict> conflicts;
     std::list<Conflict> semicard_conflicts;
     std::list<Conflict> cardinal_conflicts;
@@ -158,7 +151,6 @@ struct CBS_Node
     {
         low_level_expanded = 0;
         conflicts = {};
-        h = 0;
         if(paths.size() == 1)
         {
             cons_num[paths[0].agentID]++;
@@ -183,10 +175,10 @@ struct Open_Elem
     int id;
     double cost;
     double f;
-    unsigned int cons_num;
-    unsigned int conflicts_num;
+    int cons_num;
+    int conflicts_num;
 
-    Open_Elem(CBS_Node* _tree_pointer = nullptr, int _id = -1, double _cost = -1, double _f = -1, unsigned int _cons_num = 0, unsigned int _conflicts_num = 0)
+    Open_Elem(CBS_Node* _tree_pointer = nullptr, int _id = -1, double _cost = -1, double _f = -1, int _cons_num = -1, int _conflicts_num = -1)
         : tree_pointer(_tree_pointer), id(_id), cost(_cost), f(_f), cons_num(_cons_num), conflicts_num(_conflicts_num) {}
     ~Open_Elem()
     {
@@ -201,7 +193,7 @@ typedef multi_index_container<
         Open_Elem,
         indexed_by<
                     //ordered_non_unique<tag<cost>, BOOST_MULTI_INDEX_MEMBER(Open_Elem, double, cost)>,
-                    ordered_non_unique<composite_key<Open_Elem, BOOST_MULTI_INDEX_MEMBER(Open_Elem, double, cost), BOOST_MULTI_INDEX_MEMBER(Open_Elem, unsigned int, conflicts_num), BOOST_MULTI_INDEX_MEMBER(Open_Elem, unsigned int, cons_num)>,
+                    ordered_non_unique<composite_key<Open_Elem, BOOST_MULTI_INDEX_MEMBER(Open_Elem, double, cost), BOOST_MULTI_INDEX_MEMBER(Open_Elem, int, conflicts_num), BOOST_MULTI_INDEX_MEMBER(Open_Elem, int, cons_num)>,
                     composite_key_compare<std::less<double>, std::less<int>, std::greater<int>>>,
                     hashed_unique<tag<id>, BOOST_MULTI_INDEX_MEMBER(Open_Elem, int, id)>
         >
@@ -210,10 +202,10 @@ typedef multi_index_container<
 struct Focal_Elem
 {
     int id;
-    unsigned int conflicts_num;
-    unsigned int constraints;
+    int conflicts_num;
+    int constraints;
     double cost;
-    Focal_Elem(int id_=-1, unsigned int conflicts_num_ = 0, unsigned int constraints_ = 0, double cost_ = 0):id(id_), conflicts_num(conflicts_num_), constraints(constraints_), cost(cost_){}
+    Focal_Elem(int id_=-1, int conflicts_num_=-1, int constraints_ = 0, double cost_ = 0):id(id_), conflicts_num(conflicts_num_), constraints(constraints_), cost(cost_){}
     bool operator <(const Focal_Elem& other) const
     {
         if(this->conflicts_num < other.conflicts_num)
@@ -242,26 +234,18 @@ typedef multi_index_container<
         >
 > Focal_container;
 
-typedef multi_index_container<
-        Node,
-        indexed_by<
-                    //ordered_non_unique<tag<cost>, BOOST_MULTI_INDEX_MEMBER(Open_Elem, double, cost)>,
-                    ordered_non_unique<BOOST_MULTI_INDEX_MEMBER(Node, double, g)>,
-                    hashed_non_unique<BOOST_MULTI_INDEX_MEMBER(Node, int, id)>
-        >
-> Open_List;
-
 class CBS_Tree
 {
     std::list<CBS_Node> tree;
+    std::list<Open_Elem> open;
     Focal_container focal;
     CT_container container;
     double focal_weight;
     int open_size;
     std::set<int> closed;
 public:
-    CBS_Tree() { open_size = 0; focal_weight = 1.0; }
-    unsigned int get_size()
+    CBS_Tree() { open_size = 0; open.clear(); focal_weight = 1.0; }
+    int get_size()
     {
         return tree.size();
     }
@@ -269,6 +253,7 @@ public:
     void set_focal_weight(double weight)
     {
         focal_weight = weight;
+        //std::cout<<focal_weight<<" focal weight ";
     }
 
     int get_open_size()
@@ -346,13 +331,14 @@ struct Solution
     int constraints_num;
     int max_constraints;
     int high_level_expanded;
-    int high_level_generated;
     int low_level_expansions;
     double low_level_expanded;
     int cardinal_solved;
     int semicardinal_solved;
+    int init_conflicts;
     std::chrono::duration<double> time;
     std::chrono::duration<double> init_time;
+    std::chrono::duration<double> h_time;
     std::vector<Path> paths;
     Solution(double _flowtime = -1, double _makespan = -1, std::vector<Path> _paths = {})
         : flowtime(_flowtime), makespan(_makespan), paths(_paths) { init_cost = -1; constraints_num = 0; low_level_expanded = 0; low_level_expansions = 0; cardinal_solved = 0; semicardinal_solved = 0; max_constraints = 0;}
@@ -403,5 +389,13 @@ public:
         return 7;//BETWEEN;
     }
 };
+
+typedef multi_index_container<
+        Node,
+        indexed_by<
+                    ordered_non_unique<BOOST_MULTI_INDEX_MEMBER(Node, double, f)>,
+                    hashed_non_unique<BOOST_MULTI_INDEX_MEMBER(Node, int, id)>
+        >
+> OPEN_container;
 
 #endif // STRUCTS_H
