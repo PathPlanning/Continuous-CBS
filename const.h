@@ -2,6 +2,7 @@
 #define CONST_H
 
 #define CN_USE_CARDINAL  1
+#define CN_CACHE_PATHS   0
 #define CN_HLH_TYPE      0
 #define CN_USE_DS        0
 #define CN_TIMELIMIT     30 // in seconds

@@ -69,18 +69,50 @@ struct Path
         : nodes(_nodes), cost(_cost), agentID(_agentID) {expanded = 0;}
 };
 
+struct sNode
+{
+    int id;
+    double g;
+    sNode(int id_=-1, double g_=-1):id(id_),g(g_){}
+    sNode(const Node &n)
+    {
+        id = n.id;
+        g = n.g;
+    }
+};
+
+struct sPath
+{
+    std::vector<sNode> nodes;
+    double cost;
+    int agentID;
+    int expanded;
+    sPath(std::vector<sNode> _nodes = std::vector<sNode>(0), double _cost = -1, int _agentID = -1)
+        : nodes(_nodes), cost(_cost), agentID(_agentID) {expanded = 0;}
+    sPath operator= (const Path &path)
+    {
+        cost = path.cost;
+        agentID = path.agentID;
+        expanded = path.expanded;
+        nodes.clear();
+        for(auto n:path.nodes)
+            nodes.push_back(sNode(n));
+        return *this;
+    }
+};
+
 struct Constraint
 {
     int agent;
     double t1, t2; // prohibited to start moving from (i1, j1) to (i2, j2) during interval (t1, t2)
-    double i1, j1, i2, j2; // in case of node constraint i1==i2, j1==j2.
+    //double i1, j1, i2, j2; // in case of node constraint i1==i2, j1==j2.
     int id1, id2;
     bool positive;
-    Constraint(int _agent = -1, double _t1 = -1, double _t2 = -1, double _i1 = -1, double _j1 = -1, double _i2 = -1, double _j2 = -1, int _id1 = -1, int _id2 = -1, bool _positive = false)
-        : agent(_agent), t1(_t1), t2(_t2), i1(_i1), j1(_j1), i2(_i2), j2(_j2), id1(_id1), id2(_id2), positive(_positive) {}
+    Constraint(int _agent = -1, double _t1 = -1, double _t2 = -1, int _id1 = -1, int _id2 = -1, bool _positive = false)
+        : agent(_agent), t1(_t1), t2(_t2), id1(_id1), id2(_id2), positive(_positive) {}
     friend std::ostream& operator <<(std::ostream& os, const Constraint& con)
     {
-        os<<con.agent<<" "<<con.t1<<" "<<con.t2<<" "<<con.i1<<" "<<con.j1<<" "<<con.i2<<" "<<con.j2<<"\n";
+        os<<con.agent<<" "<<con.t1<<" "<<con.t2<<" \n";//<<con.i1<<" "<<con.j1<<" "<<con.i2<<" "<<con.j2<<"\n";
         return os;
     }
     bool operator <(const Constraint& other) const
@@ -92,13 +124,14 @@ struct Constraint
 struct Move
 {
     double t1, t2; // t2 is required for wait action
-    double i1, j1, i2, j2; // in case of wait action i1==i2, j1==j2
+    //double i1, j1, i2, j2; // in case of wait action i1==i2, j1==j2
     int id1, id2;
-    Move(double _t1 = -1, double _t2 = -1, double _i1 = -1, double _j1 = -1, double _i2 = -1, double _j2 = -1, int _id1 = -1, int _id2 = -1)
-        : t1(_t1), t2(_t2), i1(_i1), j1(_j1), i2(_i2), j2(_j2), id1(_id1), id2(_id2) {}
-    Move(const Move& move) : t1(move.t1), t2(move.t2), i1(move.i1), j1(move.j1), i2(move.i2), j2(move.j2), id1(move.id1), id2(move.id2) {}
-    Move(const Constraint& con) : t1(con.t1), t2(con.t2), i1(con.i1), j1(con.j1), i2(con.i2), j2(con.j2), id1(con.id1), id2(con.id2) {}
-    Move(Node a, Node b) : t1(a.g), t2(b.g), i1(a.i), j1(a.j), i2(b.i), j2(b.j), id1(a.id), id2(b.id) {}
+    Move(double _t1 = -1, double _t2 = -1, int _id1 = -1, int _id2 = -1)
+        : t1(_t1), t2(_t2), id1(_id1), id2(_id2) {}
+    Move(const Move& move) : t1(move.t1), t2(move.t2), id1(move.id1), id2(move.id2) {}
+    Move(const Constraint& con) : t1(con.t1), t2(con.t2), id1(con.id1), id2(con.id2) {}
+    Move(Node a, Node b) : t1(a.g), t2(b.g), id1(a.id), id2(b.id) {}
+    Move(sNode a, sNode b): t1(a.g), t2(b.g), id1(a.id), id2(b.id) {}
     bool operator <(const Move& other) const
     {
         if     (id1 < other.id1) return true;
@@ -124,10 +157,9 @@ struct Conflict
     double t;
     Move move1, move2;
     double overcost;
-    int type;
-    Path path1, path2;
+    //sPath path1, path2;
     Conflict(int _agent1 = -1, int _agent2 = -1, Move _move1 = Move(), Move _move2 = Move(), double _t = CN_INFINITY)
-        : agent1(_agent1), agent2(_agent2), t(_t), move1(_move1), move2(_move2) {overcost = 0; type = 0;}
+        : agent1(_agent1), agent2(_agent2), t(_t), move1(_move1), move2(_move2) {overcost = 0;}
     bool operator < (const Conflict& other)
     {
         return this->overcost < other.overcost;
@@ -136,35 +168,28 @@ struct Conflict
 
 struct CBS_Node
 {
-    std::vector<Path> paths;
+    std::vector<sPath> paths;
     CBS_Node* parent;
     Constraint constraint;
     Constraint positive_constraint;
     int id;
     std::string id_str;
     double cost;
-    double f,h;
-    std::vector<int> cons_num;
+    double h;
     unsigned int conflicts_num;
-    bool look_for_cardinal;
     unsigned int total_cons;
     unsigned int low_level_expanded;
     std::list<Conflict> conflicts;
     std::list<Conflict> semicard_conflicts;
     std::list<Conflict> cardinal_conflicts;
-    CBS_Node(std::vector<Path> _paths = {}, CBS_Node* _parent = nullptr, Constraint _constraint = Constraint(), double _cost = 0,
-             std::vector<int> _cons_num = {}, int _conflicts_num = 0, bool _look_for_cardinal = true, int total_cons_ = 0)
-        :paths(_paths), parent(_parent), constraint(_constraint), cost(_cost), cons_num(_cons_num), conflicts_num(_conflicts_num), look_for_cardinal(_look_for_cardinal), total_cons(total_cons_)
+    CBS_Node(std::vector<sPath> _paths = {}, CBS_Node* _parent = nullptr, Constraint _constraint = Constraint(), double _cost = 0, int _conflicts_num = 0, int total_cons_ = 0)
+        :paths(_paths), parent(_parent), constraint(_constraint), cost(_cost), conflicts_num(_conflicts_num), total_cons(total_cons_)
     {
         low_level_expanded = 0;
-        conflicts = {};
         h = 0;
-        if(paths.size() == 1)
-        {
-            cons_num[paths[0].agentID]++;
-            total_cons++;
-        }
-        cardinal_conflicts = {};
+        conflicts.clear();
+        semicard_conflicts.clear();
+        cardinal_conflicts.clear();
     }
     ~CBS_Node()
     {
@@ -182,12 +207,11 @@ struct Open_Elem
     CBS_Node* tree_pointer;
     int id;
     double cost;
-    double f;
     unsigned int cons_num;
     unsigned int conflicts_num;
 
-    Open_Elem(CBS_Node* _tree_pointer = nullptr, int _id = -1, double _cost = -1, double _f = -1, unsigned int _cons_num = 0, unsigned int _conflicts_num = 0)
-        : tree_pointer(_tree_pointer), id(_id), cost(_cost), f(_f), cons_num(_cons_num), conflicts_num(_conflicts_num) {}
+    Open_Elem(CBS_Node* _tree_pointer = nullptr, int _id = -1, double _cost = -1, unsigned int _cons_num = 0, unsigned int _conflicts_num = 0)
+        : tree_pointer(_tree_pointer), id(_id), cost(_cost), cons_num(_cons_num), conflicts_num(_conflicts_num) {}
     ~Open_Elem()
     {
         tree_pointer = nullptr;
@@ -279,7 +303,7 @@ public:
     void add_node(CBS_Node node)
     {
         tree.push_back(node);
-        container.insert(Open_Elem(&tree.back(), node.id, node.cost, node.f, node.total_cons, node.conflicts_num));
+        container.insert(Open_Elem(&tree.back(), node.id, node.cost, node.total_cons, node.conflicts_num));
         open_size++;
         if(focal_weight > 1.0)
             if(container.get<0>().begin()->cost*focal_weight > node.cost)
@@ -320,9 +344,9 @@ public:
             focal.insert(Focal_Elem(it->id, it->conflicts_num, it->cons_num, it->cost));
     }
 
-    std::vector<Path> get_paths(CBS_Node node, int size)
+    std::vector<sPath> get_paths(CBS_Node node, int size)
     {
-        std::vector<Path> paths(size);
+        std::vector<sPath> paths(size);
         while(node.parent != nullptr)
         {
             if(paths.at(node.paths.begin()->agentID).nodes.empty())
@@ -353,8 +377,8 @@ struct Solution
     int semicardinal_solved;
     std::chrono::duration<double> time;
     std::chrono::duration<double> init_time;
-    std::vector<Path> paths;
-    Solution(double _flowtime = -1, double _makespan = -1, std::vector<Path> _paths = {})
+    std::vector<sPath> paths;
+    Solution(double _flowtime = -1, double _makespan = -1, std::vector<sPath> _paths = {})
         : flowtime(_flowtime), makespan(_makespan), paths(_paths) { init_cost = -1; constraints_num = 0; low_level_expanded = 0; low_level_expansions = 0; cardinal_solved = 0; semicardinal_solved = 0; max_constraints = 0;}
     ~Solution() { paths.clear(); }
 };

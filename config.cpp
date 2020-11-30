@@ -78,6 +78,32 @@ void Config::getConfig(const char *fileName)
             use_cardinal = CN_USE_CARDINAL;
         }
     }
+    if(use_cardinal == true)
+    {
+        element = algorithm->FirstChildElement("cache_paths");
+        if (!element)
+        {
+            std::cout << "Error! No 'cache_paths' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_CACHE_PATHS<<"'."<<std::endl;
+            use_cardinal = CN_CACHE_PATHS;
+        }
+        else
+        {
+            std::string value = element->GetText();
+            if(value.compare("true") == 0 || value.compare("1") == 0)
+            {
+                cache_paths = true;
+            }
+            if(value.compare("false") == 0 || value.compare("0") == 0)
+            {
+                cache_paths = false;
+            }
+            else
+            {
+                std::cout << "Error! Wrong 'cache_paths' value found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_CACHE_PATHS<<"'."<<std::endl;
+                cache_paths = CN_CACHE_PATHS;
+            }
+        }
+    }
 
     element = algorithm->FirstChildElement("connectedness");
     if (!element)

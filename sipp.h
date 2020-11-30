@@ -21,7 +21,7 @@ private:
     void find_successors(Node curNode, const Map &map, std::list<Node> &succs, Heuristic &h_values, Node goal);
     void add_open(Node newNode);
     Node find_min();
-    double dist(const Node& a, const Node& b);
+    double dist(const Node &a, const Node &b);
     std::vector<Node> reconstruct_path(Node curNode);
     void make_constraints(std::list<Constraint> &cons);
     void clear();

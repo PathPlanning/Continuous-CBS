@@ -85,22 +85,22 @@ void XML_logger::write_to_log_path(const Solution &solution)
         tinyxml2::XMLElement *part;
         part = doc->NewElement(CNS_TAG_SECTION);
         part->SetAttribute(CNS_TAG_ATTR_NUM, partnumber);
-        part->SetAttribute(CNS_TAG_ATTR_SX, it->j);
-        part->SetAttribute(CNS_TAG_ATTR_SY, it->i);
-        part->SetAttribute(CNS_TAG_ATTR_FX, iter->j);
-        part->SetAttribute(CNS_TAG_ATTR_FY, iter->i);
+        //part->SetAttribute(CNS_TAG_ATTR_SX, it->j);
+        //part->SetAttribute(CNS_TAG_ATTR_SY, it->i);
+        //part->SetAttribute(CNS_TAG_ATTR_FX, iter->j);
+        //part->SetAttribute(CNS_TAG_ATTR_FY, iter->i);
         part->SetAttribute(CNS_TAG_ATTR_LENGTH, iter->g);
         hplevel->LinkEndChild(part);
         partnumber++;
-        while(iter != --solution.paths[i].nodes.end())
+        while(iter != std::prev(solution.paths[i].nodes.end()))
         {
             part = doc->NewElement(CNS_TAG_SECTION);
             part->SetAttribute(CNS_TAG_ATTR_NUM, partnumber);
-            part->SetAttribute(CNS_TAG_ATTR_SX, it->j);
-            part->SetAttribute(CNS_TAG_ATTR_SY, it->i);
+          //  part->SetAttribute(CNS_TAG_ATTR_SX, it->j);
+          //  part->SetAttribute(CNS_TAG_ATTR_SY, it->i);
             iter++;
-            part->SetAttribute(CNS_TAG_ATTR_FX, iter->j);
-            part->SetAttribute(CNS_TAG_ATTR_FY, iter->i);
+          //  part->SetAttribute(CNS_TAG_ATTR_FX, iter->j);
+          //  part->SetAttribute(CNS_TAG_ATTR_FY, iter->i);
             part->SetAttribute(CNS_TAG_ATTR_LENGTH, iter->g - it->g);
             hplevel->LinkEndChild(part);
             it++;

@@ -34,6 +34,8 @@ public:
     int  get_width() const {return width;}
     gNode get_gNode(int id) const {if(id < int(nodes.size())) return nodes[id]; return gNode();}
     int  get_id(int i, int j) const;
+    double get_i (int id) const;
+    double get_j (int id) const;
     std::vector<Node> get_valid_moves(int id) const;
     void print_map();
     void printPPM();

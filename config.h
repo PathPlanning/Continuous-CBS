@@ -15,6 +15,7 @@ public:
     double  precision;
     double  focal_weight;
     bool    use_cardinal;
+    bool    cache_paths;
     int     connectdness;
     double  agent_size;
     double  timelimit;
