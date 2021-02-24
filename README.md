@@ -2,7 +2,12 @@
 Continuous CBS - a modification of conflict based search algorithm, that allows to perform actions of any arbitrary duration.
 The main differences are the representation of constraints, timeline, collision detection mechanism and using SIPP algorithm as a low-level planner. More info about CCBS and its principles of work you can find at https://arxiv.org/abs/1901.05506
 
-Note that master branch contains a version of CCBS that uses grids as the description of environment. You can find a version that allows to use non regular graphs, such as roadmaps, at https://github.com/PathPlanning/Continuous-CBS/tree/CCBS-graphs
+The master-version can work both on grids and roadmaps and supports the following enhancements:
+- Disjoint Splitting
+- Prioritizing conflicts
+- High-level heuristics
+
+The detailed descriptions of these enhancements can be found at https://arxiv.org/abs/2101.09723
 
 ## Getting Started
 
@@ -37,19 +42,25 @@ make
 The examples of input and output files you can find in the Examples folder.
 
 ## Options
-There are some options that can be controlled through the `const.h` file:
-* CN_K - controls the connectedness of the grid. Possible values: 2 - 4 cardinal neighbors; 3 - 4 cardinal + 4 diagonal; 4 - 16 neighbors; 5 - 32 neighbors.
-* CN_CARDINAL - controls whether the algorithm is looking for cardinal and semi-cardinal collisions or not. Possible values are `1`(true) or `0` (false).
-* CN_HISTORY - controls whether the algorithm uses the information about previosly found collisions. This option allows to reduce the time requred for collision detection function, but it can't be directly combined with looking for cardinal conflicts. Possible values are `1`(true) or `0` (false).
-* CN_STOP_CARDINAL - this option allows to stop looking for cardinal conflicts in cases, when the algorithm cannot find them anymore in the current branch of high-level tree. It also allows to combine CN_CARDINAL and CN_HISTORY options. Possible values are `1`(true) or `0` (false).
-* CN_TIMELIMIT - controls the maximum runtime of the algorithm. Possible values are >0. For example CN_TIMELIMIT 60 means that the algorithm can spend up to 60 seconds to find a solution.
-* CN_AGENT_SIZE - controls the size (radii) of the agents' shape. Possible values are >0.
-* CN_DELTA - additional option, that controls the precision of detection of the end of collision interval (the moment of time when there is no more collision between the agents). The lower the value - the preciser the algorithm finds the end of collision interval, but it takes more time. Possible values are >0.
+There are some options that can be controlled either through the `const.h` file or through the input configuration file (see examples):
+* <use_cardinal> - controls whether the algorithm is looking for cardinal and semi-cardinal collisions or not. Possible values are `1`(true) or `0` (false).
+* <use_disjoint_splitting> - controls whether the algotihm uses disjoint splitting enhancement or not. Possible values are `1`(true) or `0` (false).
+* <hl_type> - controls whether the algorithm uses high-level heuristics or not. 2 different heursitics are implemented. `0` - HL-heuristic is disabled; `1` - HL-heuristic based on solving linear programming problem (by simplex method); `2` - HL-heurstic based an greedy choose of disjoint cardinal conflicts. 
+* <connectedness> - controls the connectedness of the grid. Possible values: 2 - 4 cardinal neighbors; 3 - 4 cardinal + 4 diagonal; 4 - 16 neighbors; 5 - 32 neighbors. In case if the map is represented as roadmap this parameter is ignored.
+* <timelimit> - controls the maximum runtime of the algorithm. Possible values are >0. For example value 60 means that the algorithm can spend up to 60 seconds to find a solution.
+* <agent_size> - controls the size (radii) of the agents' shape. Possible values are in the range (0, 0.5].
+* <precision> - additional option, that controls how precise the end of collision interval is detected (the moment of time when there is no more collision between the agents). The lower the value - the preciser the algorithm finds the end of collision interval, but it takes a bit more time. Possible values are >0.
+
+If some of these tags are not defined in the input configuraton file or there is no config-file, all the values of the absent parameters are taken from the 'const.h' file.
 
 ## Launch
-To launch the application you need to have map and taks input XML-files with all required information:
+To launch the application you need to have at least map and task input XML-files with all required information:
 ```
-./C-CBS map.xml task.xml
+./CCBS map.xml task.xml
+```
+If you want to control the parameters through the input cofig file, you need to launch the application with three parameters:
+```
+./CCBS map.xml task.xml config.xml
 ```
 The output file will be placed in the same folder as input files and, by default, will be named as task-file plus `_log.xml`. For examlpe,
 ```
