@@ -15,7 +15,8 @@ public:
     double  precision;
     double  focal_weight;
     bool    use_cardinal;
-    bool    cache_paths;
+    bool    use_disjoint_splitting;
+    int     hlh_type;
     int     connectdness;
     double  agent_size;
     double  timelimit;

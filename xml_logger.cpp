@@ -59,12 +59,12 @@ void XML_logger::write_to_log_summary(const Solution &solution)
     element->SetAttribute(CNS_TAG_ATTR_MAKESPAN, solution.makespan);
 }
 
-void XML_logger::write_to_log_path(const Solution &solution)
+void XML_logger::write_to_log_path(const Solution &solution, const Map &map)
 {
     tinyxml2::XMLElement *element=doc->FirstChildElement(CNS_TAG_ROOT);
     element = element->FirstChildElement(CNS_TAG_LOG);
 
-    tinyxml2::XMLElement *agent, *path, *hplevel;
+    tinyxml2::XMLElement *agent, *path;
 
     for(int i = 0; i < int(solution.paths.size()); i++)
     {
@@ -73,36 +73,36 @@ void XML_logger::write_to_log_path(const Solution &solution)
         element->LinkEndChild(agent);
 
         path = doc->NewElement(CNS_TAG_PATH);
-        path->SetAttribute(CNS_TAG_ATTR_NUM, i);
-        path->SetAttribute(CNS_TAG_ATTR_LENGTH, solution.paths[i].cost);
+        //path->SetAttribute(CNS_TAG_ATTR_NUM, i);
+        path->SetAttribute(CNS_TAG_ATTR_DURATION, solution.paths[i].cost);
         agent->LinkEndChild(path);
 
-        hplevel = doc->NewElement(CNS_TAG_HPLEVEL);
-        path->LinkEndChild(hplevel);
+        //hplevel = doc->NewElement(CNS_TAG_HPLEVEL);
+        //path->LinkEndChild(hplevel);
         auto iter = solution.paths[i].nodes.begin();
         auto it = solution.paths[i].nodes.begin();
         int partnumber(0);
         tinyxml2::XMLElement *part;
-        part = doc->NewElement(CNS_TAG_SECTION);
+        /*part = doc->NewElement(CNS_TAG_SECTION);
         part->SetAttribute(CNS_TAG_ATTR_NUM, partnumber);
-        //part->SetAttribute(CNS_TAG_ATTR_SX, it->j);
-        //part->SetAttribute(CNS_TAG_ATTR_SY, it->i);
-        //part->SetAttribute(CNS_TAG_ATTR_FX, iter->j);
-        //part->SetAttribute(CNS_TAG_ATTR_FY, iter->i);
+        part->SetAttribute(CNS_TAG_START_I, map.get_i(it->id));
+        part->SetAttribute(CNS_TAG_START_J, map.get_j(it->id));
+        part->SetAttribute(CNS_TAG_GOAL_I, map.get_i(iter->id));
+        part->SetAttribute(CNS_TAG_GOAL_J, map.get_j(iter->id));
         part->SetAttribute(CNS_TAG_ATTR_LENGTH, iter->g);
         hplevel->LinkEndChild(part);
-        partnumber++;
+        partnumber++;*/
         while(iter != std::prev(solution.paths[i].nodes.end()))
         {
             part = doc->NewElement(CNS_TAG_SECTION);
             part->SetAttribute(CNS_TAG_ATTR_NUM, partnumber);
-          //  part->SetAttribute(CNS_TAG_ATTR_SX, it->j);
-          //  part->SetAttribute(CNS_TAG_ATTR_SY, it->i);
+            part->SetAttribute(CNS_TAG_START_I, map.get_i(it->id));
+            part->SetAttribute(CNS_TAG_START_J, map.get_j(it->id));
             iter++;
-          //  part->SetAttribute(CNS_TAG_ATTR_FX, iter->j);
-          //  part->SetAttribute(CNS_TAG_ATTR_FY, iter->i);
-            part->SetAttribute(CNS_TAG_ATTR_LENGTH, iter->g - it->g);
-            hplevel->LinkEndChild(part);
+            part->SetAttribute(CNS_TAG_GOAL_I, map.get_i(iter->id));
+            part->SetAttribute(CNS_TAG_GOAL_J, map.get_j(iter->id));
+            part->SetAttribute(CNS_TAG_ATTR_DURATION, iter->g - it->g);
+            path->LinkEndChild(part);
             it++;
             partnumber++;
         }

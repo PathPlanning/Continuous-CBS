@@ -68,7 +68,7 @@ void Config::getConfig(const char *fileName)
         {
             use_cardinal = true;
         }
-        if(value.compare("false") == 0 || value.compare("0") == 0)
+        else if(value.compare("false") == 0 || value.compare("0") == 0)
         {
             use_cardinal = false;
         }
@@ -78,30 +78,28 @@ void Config::getConfig(const char *fileName)
             use_cardinal = CN_USE_CARDINAL;
         }
     }
-    if(use_cardinal == true)
+
+    element = algorithm->FirstChildElement("use_disjoint_splitting");
+    if (!element)
     {
-        element = algorithm->FirstChildElement("cache_paths");
-        if (!element)
+        std::cout << "Error! No 'use_disjoint_splitting' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_USE_DS<<"'."<<std::endl;
+        use_disjoint_splitting = CN_USE_DS;
+    }
+    else
+    {
+        std::string value = element->GetText();
+        if(value.compare("true") == 0 || value.compare("1") == 0)
         {
-            std::cout << "Error! No 'cache_paths' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_CACHE_PATHS<<"'."<<std::endl;
-            use_cardinal = CN_CACHE_PATHS;
+            use_disjoint_splitting = true;
+        }
+        else if(value.compare("false") == 0 || value.compare("0") == 0)
+        {
+            use_disjoint_splitting = false;
         }
         else
         {
-            std::string value = element->GetText();
-            if(value.compare("true") == 0 || value.compare("1") == 0)
-            {
-                cache_paths = true;
-            }
-            if(value.compare("false") == 0 || value.compare("0") == 0)
-            {
-                cache_paths = false;
-            }
-            else
-            {
-                std::cout << "Error! Wrong 'cache_paths' value found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_CACHE_PATHS<<"'."<<std::endl;
-                cache_paths = CN_CACHE_PATHS;
-            }
+            std::cout << "Error! Wrong 'use_disjoint_splitting' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_USE_DS<<"'."<<std::endl;
+            use_disjoint_splitting = CN_USE_DS;
         }
     }
 
@@ -139,7 +137,7 @@ void Config::getConfig(const char *fileName)
         if(focal_weight < 1.0)
         {
             std::cout << "Error! Wrong 'focal_weight' value found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_FOCAL_WEIGHT<<"'."<<std::endl;
-            connectdness = CN_CONNECTEDNESS;
+            focal_weight = CN_FOCAL_WEIGHT;
         }
         stream.clear();
         stream.str("");
@@ -160,6 +158,26 @@ void Config::getConfig(const char *fileName)
         {
             std::cout << "Error! Wrong 'agent_size' value found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_AGENT_SIZE<<"'."<<std::endl;
             agent_size = CN_AGENT_SIZE;
+        }
+        stream.clear();
+        stream.str("");
+    }
+
+    element = algorithm->FirstChildElement("hlh_type");
+    if (!element)
+    {
+        std::cout << "Error! No 'hlh_type' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_HLH_TYPE<<"'."<<std::endl;
+        hlh_type = CN_HLH_TYPE;
+    }
+    else
+    {
+        auto value = element->GetText();
+        stream<<value;
+        stream>>hlh_type;
+        if(hlh_type < 0 || hlh_type > 2)
+        {
+            std::cout << "Error! Wrong 'hlh_type' value found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_HLH_TYPE<<"'."<<std::endl;
+            hlh_type = CN_HLH_TYPE;
         }
         stream.clear();
         stream.str("");

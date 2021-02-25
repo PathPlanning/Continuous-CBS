@@ -23,12 +23,12 @@ int main(int argc, const char *argv[])
         CBS cbs;
         Solution solution = cbs.find_solution(map, task, config);
         XML_logger logger;
-        std::cout<< "Runtime: "<<solution.time.count() << "\nMakespan: " << solution.makespan << "\nFlowtime:" << solution.flowtime<< "\nInitial Cost: "<<solution.init_cost<< "\nCollision Checking Time: " << solution.check_time
+        std::cout<< "Runtime: "<<solution.time.count() << "\nMakespan: " << solution.makespan << "\nFlowtime: " << solution.flowtime<< "\nInitial Cost: "<<solution.init_cost<< "\nCollision Checking Time: " << solution.check_time
              << "\nHL expanded: " << solution.high_level_expanded << "\nLL searches: " << solution.low_level_expansions << "\nLL expanded(avg): " << solution.low_level_expanded << std::endl;
 
         logger.get_log(argv[2]);
         logger.write_to_log_summary(solution);
-        logger.write_to_log_path(solution);
+        logger.write_to_log_path(solution, map);
         logger.save_log();
     }
     else

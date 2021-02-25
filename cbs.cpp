@@ -134,11 +134,11 @@ Constraint CBS::get_wait_constraint(int agent, Move move1, Move move2)
     return Constraint(agent, interval.first, interval.second, move1.id1, move1.id2);
 }
 
-double CBS::get_hl_heuristic(const std::list<Conflict> &conflicts, bool simplex)
+double CBS::get_hl_heuristic(const std::list<Conflict> &conflicts)
 {
-    if(conflicts.empty() || CN_HLH_TYPE == 0)
+    if(conflicts.empty() || config.hlh_type == 0)
         return 0;
-    else if (CN_HLH_TYPE == 1 || simplex)
+    else if (config.hlh_type == 1)
     {
         optimization::Simplex simplex("simplex");
         std::map<int, int> colliding_agents;
@@ -265,8 +265,6 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
     int low_level_searches(0);
     int low_level_expanded(0);
     int id = 2;
-    double lp_h(0), dac_h(0);
-    int equal_h, total_h;
     do
     {
         auto parent = tree.get_front();
@@ -332,7 +330,7 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
         Constraint positive;
         bool inserted = false;
         bool left_ok = true, right_ok = true;
-        if(CN_USE_DS)
+        if(config.use_disjoint_splitting)
         {
             int agent1positives(0), agent2positives(0);
             for(auto c: constraintsA)

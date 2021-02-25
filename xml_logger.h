@@ -21,7 +21,7 @@ public:
     bool get_log(const char* FileName);
     void save_log();
     void write_to_log_summary(const Solution &solution);
-    void write_to_log_path(const Solution &solution);
+    void write_to_log_path(const Solution &solution, const Map &map);
 
 };
 

@@ -22,7 +22,7 @@ public:
     bool check_positive_constraints(std::list<Constraint> constraints, Constraint constraint);
     Conflict check_paths(const sPath &pathA, const sPath &pathB);
     bool check_conflict(Move move1, Move move2);
-    double get_hl_heuristic(const std::list<Conflict> &conflicts, bool simplex = false);
+    double get_hl_heuristic(const std::list<Conflict> &conflicts);
     std::vector<Conflict> get_all_conflicts(const std::vector<sPath> &paths, int id);
     Constraint get_constraint(int agent, Move move1, Move move2);
     Constraint get_wait_constraint(int agent, Move move1, Move move2);

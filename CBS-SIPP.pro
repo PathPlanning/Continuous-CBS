@@ -3,7 +3,6 @@ CONFIG += console c++11
 CONFIG -= app_bundle
 CONFIG -= qt
 TARGET = CCBS
-INCLUDEPATH += D:/boost_1_73_0
 win32 {
 QMAKE_LFLAGS += -static -static-libgcc -static-libstdc++
 }
