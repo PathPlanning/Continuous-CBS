@@ -1,13 +1,22 @@
 # Continuous-CBS
 Continuous CBS - a modification of conflict based search algorithm, that allows to perform actions of any arbitrary duration.
-The main differences are the representation of constraints, timeline, collision detection mechanism and using SIPP algorithm as a low-level planner. More info about CCBS and its principles of work you can find at https://arxiv.org/abs/1901.05506
+The main differences are the representation of constraints, timeline, collision detection mechanism and using SIPP algorithm as a low-level planner. More info about CCBS and its principles of work you can find at [IJCAI19 paper](https://www.ijcai.org/Proceedings/2019/0006.pdf).
 
 The master-version can work both on grids and roadmaps and supports the following enhancements:
 - Disjoint Splitting
 - Prioritizing conflicts
 - High-level heuristics
 
-The detailed descriptions of these enhancements can be found at https://arxiv.org/abs/2101.09723
+The detailed descriptions of these enhancements can be found at [AAAI21 paper](https://arxiv.org/abs/2101.09723).
+
+## Content
+
+Besides the source code of the algorithm, there are also some usefull folders:
+* [Demos](https://github.com/PathPlanning/Continuous-CBS/tree/master/Demos) - contains a few visualized demonstrations of the plans created by CCBS.
+* [Examples](https://github.com/PathPlanning/Continuous-CBS/tree/master/Examples) - contains the exmaples of input/output XML-files required/provided by the algorithm.
+* [Instances](https://github.com/PathPlanning/Continuous-CBS/tree/master/Instances) - contains the archives with the maps and instances in the required format, that were used for the experimental evaluation in the papers about CCBS.
+* [ExpResults](https://github.com/PathPlanning/Continuous-CBS/tree/master/ExpResults) - contains the raw data of the results obtained during the experimental evaluation of CCBS algorithm.
+* [Releases](https://github.com/PathPlanning/Continuous-CBS/releases) - not a folder, but the tagged commits that were used to get the results for the corresponding papers.
 
 ## Getting Started
 
@@ -58,7 +67,7 @@ To launch the application you need to have at least map and task input XML-files
 ```
 ./CCBS map.xml task.xml
 ```
-If you want to control the parameters through the input cofig file, you need to launch the application with three parameters:
+If you want to control the parameters through the input config file, you need to launch the application with three parameters:
 ```
 ./CCBS map.xml task.xml config.xml
 ```
