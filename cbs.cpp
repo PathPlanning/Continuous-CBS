@@ -254,6 +254,7 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
     if(!this->init_root(map, task))
         return solution;
     solution.init_time = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t);
+    solution.found = true;
     CBS_Node node;
     std::chrono::duration<double> time_spent;
     int expanded(1);
@@ -412,7 +413,10 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
         }
         time_spent = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t);
         if(time_spent.count() > config.timelimit)
+        {
+            solution.found = false;
             break;
+        }
     }
     while(tree.get_open_size() > 0);
     solution.paths = get_paths(&node, task.get_agents_size());

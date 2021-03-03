@@ -363,6 +363,7 @@ public:
 
 struct Solution
 {
+    bool found;
     double flowtime;
     double makespan;
     double check_time;
@@ -380,7 +381,7 @@ struct Solution
     std::vector<sPath> paths;
     Solution(double _flowtime = -1, double _makespan = -1, std::vector<sPath> _paths = {})
         : flowtime(_flowtime), makespan(_makespan), paths(_paths) { init_cost = -1; constraints_num = 0; low_level_expanded = 0; low_level_expansions = 0; cardinal_solved = 0; semicardinal_solved = 0; max_constraints = 0;}
-    ~Solution() { paths.clear(); }
+    ~Solution() { paths.clear(); found = false;}
 };
 
 class Vector2D {
