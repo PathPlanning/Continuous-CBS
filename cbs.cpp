@@ -32,7 +32,7 @@ bool CBS::init_root(const Map &map, const Task &task)
             //conflict.path2 = pathB;
             if(pathA.cost > root.paths[conflict.agent1].cost && pathB.cost > root.paths[conflict.agent2].cost)
             {
-                conflict.overcost = std::min(pathA.cost - root.paths[conflict.agent1].cost, pathB.cost - root.paths[conflict.agent2].cost);
+                conflict.overcost = 0;//std::min(pathA.cost - root.paths[conflict.agent1].cost, pathB.cost - root.paths[conflict.agent2].cost);
                 root.cardinal_conflicts.push_back(conflict);
             }
             else if(pathA.cost > root.paths[conflict.agent1].cost || pathB.cost > root.paths[conflict.agent2].cost)
@@ -225,12 +225,13 @@ Conflict CBS::get_conflict(std::list<Conflict> &conflicts)
     auto best_it = conflicts.begin();
     for(auto it = conflicts.begin(); it != conflicts.end(); it++)
     {
-        if(it->overcost > 0)
+        /*if(it->overcost > 0)
         {
             if(best_it->overcost < it->overcost || (fabs(best_it->overcost - it->overcost) < CN_EPSILON && best_it->t < it->t))
                 best_it = it;
         }
-        else if(best_it->t < it->t)
+        else */
+        if(best_it->t < it->t)
             best_it = it;
     }
 
@@ -519,17 +520,17 @@ void CBS::find_new_conflicts(const Map &map, const Task &task, CBS_Node &node, s
             }
             else if (new_pathA.cost < 0)
             {
-                c.overcost = new_pathB.cost - old_cost;
+                c.overcost = 0;//new_pathB.cost - old_cost;
                 cardinal_conflictsA.push_back(c);
             }
             else if (new_pathB.cost < 0)
             {
-                c.overcost = new_pathA.cost - path.cost;
+                c.overcost = 0;//new_pathA.cost - path.cost;
                 cardinal_conflictsA.push_back(c);
             }
             else if(new_pathA.cost > path.cost && new_pathB.cost > old_cost)
             {
-                c.overcost = std::min(new_pathA.cost - path.cost, new_pathB.cost - old_cost);
+                c.overcost = 0;//std::min(new_pathA.cost - path.cost, new_pathB.cost - old_cost);
                 cardinal_conflictsA.push_back(c);
             }
             else if(new_pathA.cost > path.cost || new_pathB.cost > old_cost)
@@ -557,17 +558,17 @@ void CBS::find_new_conflicts(const Map &map, const Task &task, CBS_Node &node, s
             }
             else if (new_pathA.cost < 0)
             {
-                c.overcost = new_pathB.cost - old_cost;
+                c.overcost = 0;//new_pathB.cost - old_cost;
                 cardinal_conflictsA.push_back(c);
             }
             else if (new_pathB.cost < 0)
             {
-                c.overcost = new_pathA.cost - path.cost;
+                c.overcost = 0;//new_pathA.cost - path.cost;
                 cardinal_conflictsA.push_back(c);
             }
             else if(new_pathA.cost > path.cost && new_pathB.cost > old_cost)
             {
-                c.overcost = std::min(new_pathA.cost - path.cost, new_pathB.cost - old_cost);
+                c.overcost = 0;//std::min(new_pathA.cost - path.cost, new_pathB.cost - old_cost);
                 cardinal_conflictsA.push_back(c);
             }
             else if(new_pathA.cost > path.cost || new_pathB.cost > old_cost)
