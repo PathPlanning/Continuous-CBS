@@ -153,7 +153,7 @@ void SIPP::add_collision_interval(int id, std::pair<double, double> interval)
         collision_intervals[id].push_back(interval);
     std::sort(collision_intervals[id].begin(), collision_intervals[id].end());
     for(unsigned int i = 0; i + 1 < collision_intervals[id].size(); i++)
-        if(collision_intervals[id][i].second - CN_EPSILON < collision_intervals[id][i+1].first)
+        if(collision_intervals[id][i].second + CN_EPSILON > collision_intervals[id][i+1].first)
         {
             collision_intervals[id][i].second = collision_intervals[id][i+1].second;
             collision_intervals[id].erase(collision_intervals[id].begin() + i + 1);
