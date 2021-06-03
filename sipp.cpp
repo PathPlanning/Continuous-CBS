@@ -318,9 +318,9 @@ std::vector<Node> SIPP::get_endpoints(int node_id, double node_i, double node_j,
     if(collision_intervals[node_id].empty())
         return nodes;
     else
-    {
-        unsigned int i(0);
         for(unsigned int k = 0; k < collision_intervals[node_id].size(); k++)
+        {    
+            unsigned int i(0);
             while(i < nodes.size())
             {
                 Node n = nodes[i];
@@ -354,7 +354,7 @@ std::vector<Node> SIPP::get_endpoints(int node_id, double node_i, double node_j,
                 }
                 i++;
             }
-    }
+        }
     return nodes;
 }
 
