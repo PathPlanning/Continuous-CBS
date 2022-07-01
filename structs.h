@@ -262,8 +262,8 @@ typedef multi_index_container<
         Open_Elem,
         indexed_by<
                     //ordered_non_unique<tag<cost>, BOOST_MULTI_INDEX_MEMBER(Open_Elem, double, cost)>,
-                    ordered_non_unique<composite_key<Open_Elem, BOOST_MULTI_INDEX_MEMBER(Open_Elem, double, cost), BOOST_MULTI_INDEX_MEMBER(Open_Elem, unsigned int, conflicts_num), BOOST_MULTI_INDEX_MEMBER(Open_Elem, unsigned int, cons_num)>,
-                    composite_key_compare<std::less<double>, std::less<int>, std::greater<int>>>,
+                    ordered_non_unique<composite_key<Open_Elem, BOOST_MULTI_INDEX_MEMBER(Open_Elem, double, cost), BOOST_MULTI_INDEX_MEMBER(Open_Elem, unsigned int, conflicts_num), BOOST_MULTI_INDEX_MEMBER(Open_Elem, unsigned int, cons_num), BOOST_MULTI_INDEX_MEMBER(Open_Elem, int, id)>,
+                    composite_key_compare<std::less<double>, std::less<int>, std::greater<int>, std::greater<int>>>,
                     hashed_unique<tag<id>, BOOST_MULTI_INDEX_MEMBER(Open_Elem, int, id)>
         >
 > CT_container;
@@ -413,6 +413,7 @@ struct Solution
     double low_level_expanded;
     int cardinal_solved;
     int semicardinal_solved;
+    int initial_conflicts;
     std::chrono::duration<double> time;
     std::chrono::duration<double> init_time;
     std::vector<sPath> paths;

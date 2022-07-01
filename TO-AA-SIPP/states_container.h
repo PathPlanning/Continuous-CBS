@@ -34,12 +34,15 @@ typedef multi_index_container<
                 oNode,
                 member<oNode, bool,   &oNode::expanded>,
                 member<oNode, double, &oNode::F>,
-                member<oNode, double, &oNode::h>
+                member<oNode, double, &oNode::h>,
+                member<oNode, int, &oNode::id>
             >
         >,
         ordered_non_unique<
             tag<by_cons>,
-            member<oNode, int, &oNode::consistent>
+
+                member<oNode, int, &oNode::consistent>
+
         >
 
     >
@@ -72,17 +75,26 @@ public:
         addParent(const oNode* parent, double new_g):parent(parent), new_g(new_g){}
         void operator()(oNode &n)
         {
+            bool inserted = false;
             if(n.parents.empty())
+            {
                 n.parents.push_front({parent, new_g});
-            else if(n.parents.back().second - new_g < CN_EPSILON)
+                inserted = true;
+            }
+            else if(n.parents.back().second - new_g < 0)
+            {
                 n.parents.push_back({parent, new_g});
+                inserted = true;
+            }
             else
                 for(auto it = n.parents.begin(); it != n.parents.end(); it++)
-                    if(it->second - new_g > CN_EPSILON)
+                    if(it->second - new_g > CN_EPSILON || (fabs(it->second - new_g) < CN_EPSILON && it->first->id > parent->id))
                     {
                         n.parents.insert(it,{parent, new_g});
                         break;
                     }
+            if(!inserted)
+                n.parents.push_back({parent, new_g});
         }
         private:
         const oNode* parent;
@@ -283,7 +295,7 @@ public:
     {
         typedef multi_index::index<by_cons>::type cons_index;
         cons_index & cons = states.get<by_cons>();
-        std::cout<<cons.count(0)<<" "<<cons.count(1)<<" "<<cons.count(2)<<" ";
+        std::cout<<cons.count(0)<<" "<<cons.count(1)<<" "<<cons.count(2)<<" STATS\n";
     }
 
     void clear()

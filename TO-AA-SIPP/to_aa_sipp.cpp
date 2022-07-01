@@ -18,7 +18,7 @@ double TO_AA_SIPP::calculateDistanceFromCellToCell(double start_i, double start_
 void TO_AA_SIPP::initStates(Agent agent, const Map &Map, const std::list<Constraint> &constraints)
 {
     states.map = &Map;
-    double g, h = h_values.get_value(agent.start_i, agent.start_j);
+    double g, h = h_values.get_value(agent.start_i, agent.start_j);//calculateDistanceFromCellToCell(agent.start_i, agent.start_j, agent.goal_i, agent.goal_j);
     oNode start(agent.start_i, agent.start_j,0,h);
     make_constraints(constraints);
     start.h = h;
@@ -37,18 +37,18 @@ void TO_AA_SIPP::initStates(Agent agent, const Map &Map, const std::list<Constra
     for(int i = 0; i < Map.get_height(); i++)
         for(int j = 0; j < Map.get_width(); j++)
         {
-            if(Map.cell_is_obstacle(i,j))
+            if(Map.cell_is_obstacle(i,j))// || (i == agent.start_i && j == agent.start_j))
                 continue;
             std::vector<std::pair<double, double>> intervals(0);
             auto colls_it = collision_intervals.find(i*Map.get_width() + j);
             if(colls_it != collision_intervals.end())
             {
                 std::pair<double, double> interval = {0, CN_INFINITY};
-                for(unsigned int i = 0; i < colls_it->second.size(); i++)
+                for(size_t k = 0; k < colls_it->second.size(); k++)
                 {
-                    interval.second = colls_it->second[i].first;
+                    interval.second = colls_it->second[k].first;
                     intervals.push_back(interval);
-                    interval.first = colls_it->second[i].second;
+                    interval.first = colls_it->second[k].second;
                 }
                 interval.second = CN_INFINITY;
                 intervals.push_back(interval);
@@ -57,12 +57,12 @@ void TO_AA_SIPP::initStates(Agent agent, const Map &Map, const std::list<Constra
                 intervals.push_back({0, CN_INFINITY});
 
             g = calculateDistanceFromCellToCell(i, j, agent.start_i, agent.start_j);
-            h = h_values.get_value(i,j);
+            h = h_values.get_value(i,j);//calculateDistanceFromCellToCell(i, j, agent.goal_i, agent.goal_j);
             oNode n = oNode(i,j,g,g+h);
             n.h = h;
             n.Parent = parent;
 
-            for(int k = 0; k < intervals.size(); k++)
+            for(size_t k = 0; k < intervals.size(); k++)
             {
                 if(i == agent.start_i && j == agent.start_j && k==0)
                     continue;
@@ -89,6 +89,7 @@ void TO_AA_SIPP::initStates(Agent agent, const Map &Map, const std::list<Constra
 
 void TO_AA_SIPP::add_collision_interval(int id, std::pair<double, double> interval)
 {
+    //std::cout<<id<<" "<<interval.first<<" "<<interval.second<<" CONSTRAINT\n";
     std::vector<std::pair<double, double>> intervals(0);
     if(collision_intervals.count(id) == 0)
         collision_intervals.insert({id, {interval}});
@@ -171,6 +172,12 @@ void TO_AA_SIPP::make_constraints(const std::list<Constraint> &cons)
 {
     for(auto con : cons)
     {
+        //std::cout<<con.id1<<" "<<con.id2<<" "<<con.t1<<" "<<con.t2<<" CONSTRAINT\n";
+        if(con.id1 == con.id2) // wait consatraint
+            add_collision_interval(con.id1, std::make_pair(con.t1, con.t2));
+        else
+            add_move_constraint(Move(con));
+        /*
         if(con.positive == false)
         {
             if(con.id1 == con.id2) // wait consatraint
@@ -189,9 +196,10 @@ void TO_AA_SIPP::make_constraints(const std::list<Constraint> &cons)
                     break;
                 }
             if(!inserted)
-                landmarks.push_back(Move(con.t1, con.t2, con.id1, con.id2));*/
+                landmarks.push_back(Move(con.t1, con.t2, con.id1, con.id2));
             continue;
         }
+        */
     }
 }
 
@@ -199,28 +207,37 @@ double TO_AA_SIPP::findEAT(oNode node)
 {
     auto cons = constraints.find(std::make_pair(node.Parent->id, node.id));
     double cost = calculateDistanceFromCellToCell(node.Parent->i, node.Parent->j, node.i, node.j);
-    if(cons != constraints.end())
-        for(auto c:cons->second)
-            if(node.g - cost + CN_EPSILON > c.t1 && node.g - cost < c.t2)
+    //node.g = std::max(node.Parent->g + cost, node.interval.begin);
+    if(cons != constraints.end()) {
+        for(const auto &c:cons->second)
+        {
+            //std::cout<<node.Parent->i<<" "<<node.Parent->j<<" "<<node.i<<" "<<node.j<<" this move is constrained for "<<c.t1<<" "<<c.t2<<" period\n";
+            if(node.g - cost + 1e-6 > c.t1 && node.g - cost < c.t2)
                 node.g = c.t2 + cost;
+            //std::cout<<"new node.g="<<node.g<<" start="<<node.g - cost<<"\n";
+        }
+    }
     return node.g;
 }
 
-Path TO_AA_SIPP::findPath(Agent agent, const Map &map, std::list<Constraint> cons, Heuristic &h_values_)
+Path TO_AA_SIPP::find_path(Agent agent, const Map &map, std::list<Constraint> cons, PHeuristic &h_values_)
 {
-
+    //std::cout<<"find path for "<<agent.id<<" "<<agent.start_id<<" "<<agent.goal_id<<"\n";
     h_values = h_values_;
     //h_values.set_goal(agent.goal_i, agent.goal_j);
     Path resultPath;
+    path = Path();
     states.clear();
     initStates(agent, map, cons);
     oNode curNode(states.getMin()), newNode;
     bool pathFound(false);
     int expanded(0);
-    states.printStats();
+    //states.printStats();
+    //std::cout<<"find path for "<<agent.id<<" "<<agent.start_id<<" "<<agent.goal_id<<" cons="<<cons.size()<<"\n";
     while(curNode.g < CN_INFINITY)//if curNode.g=CN_INFINITY => there are only unreachable non-consistent states => path cannot be found
     {
         newNode = curNode;
+        //std::cout<<newNode.i<<" "<<newNode.j<<" "<<newNode.g<<" "<<newNode.F<<" "<<newNode.Parent->i<<" "<<newNode.Parent->j<<" curNode\n";
         if(newNode.consistent == 0)
             if(!los.checkLine(newNode.i, newNode.j, newNode.Parent->i, newNode.Parent->j, map))
             {
@@ -229,7 +246,7 @@ Path TO_AA_SIPP::findPath(Agent agent, const Map &map, std::list<Constraint> con
                 continue;
             }
         newNode.g = findEAT(newNode);
-        if(newNode.g < newNode.best_g)
+        if(newNode.g - newNode.best_g < 0)
         {
             newNode.best_g = newNode.g;
             newNode.best_Parent = newNode.Parent;
@@ -239,7 +256,7 @@ Path TO_AA_SIPP::findPath(Agent agent, const Map &map, std::list<Constraint> con
             states.update(newNode, false);
 
         curNode = states.getMin();
-        if((newNode.best_g + newNode.h - curNode.F) < CN_EPSILON)
+        if(fabs(newNode.best_g + newNode.h - curNode.F) < CN_EPSILON)
         {
             expanded++;
             states.expand(newNode);
@@ -260,6 +277,8 @@ Path TO_AA_SIPP::findPath(Agent agent, const Map &map, std::list<Constraint> con
         path.cost = newNode.g;
         path.agentID = agent.id;
         path.expanded = expanded;
+        //for(auto n:path.nodes)
+        //    std::cout<<n.i<<" "<<n.j<<" "<<n.g<<"\n";
         return path;
     }
     else
@@ -373,6 +392,7 @@ void TO_AA_SIPP::makePrimaryPath(oNode curNode)
 {
     std::list<oNode> nodes;
     oNode n(curNode.i, curNode.j, curNode.g, curNode.F);
+    n.id = curNode.id;
     nodes.push_front(n);
     if(curNode.Parent != nullptr)
     {
@@ -382,15 +402,32 @@ void TO_AA_SIPP::makePrimaryPath(oNode curNode)
             do
             {
                 oNode n(curNode.i, curNode.j, curNode.g, curNode.F);
+                n.id = curNode.id;
                 nodes.push_front(n);
                 curNode = *curNode.Parent;
             }
             while(curNode.Parent != nullptr);
         }
         oNode n(curNode.i, curNode.j, curNode.g, curNode.F);
+        n.id = curNode.id;
         nodes.push_front(n);
     }
     for(auto it = nodes.begin(); it != nodes.end(); it++)
-        this->path.nodes.push_back(Node(0, it->F, it->g, it->i, it->j));
+    {
+        //std::cout<<it->id<<" "<<it->i<<" "<<it->j<<" "<<it->g<<" path node\n";
+        this->path.nodes.push_back(Node(it->id, it->F, it->g, it->i, it->j));
+    }
+    for(unsigned int i = 0; i < path.nodes.size(); i++)
+    {
+        unsigned int j = i + 1;
+        if(j == path.nodes.size())
+            break;
+        if(fabs(path.nodes[j].g - path.nodes[i].g - calculateDistanceFromCellToCell(path.nodes[j].i, path.nodes[j].j, path.nodes[i].i, path.nodes[i].j)) > CN_EPSILON)
+        {
+            Node add = path.nodes[i];
+            add.g = path.nodes[j].g - calculateDistanceFromCellToCell(path.nodes[j].i, path.nodes[j].j, path.nodes[i].i, path.nodes[i].j);
+            path.nodes.emplace(path.nodes.begin() + j, add);
+        }
+    }
     return;
 }

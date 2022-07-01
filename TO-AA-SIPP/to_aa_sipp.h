@@ -3,6 +3,7 @@
 #include "states_container.h"
 #include "structs.h"
 #include <iomanip>
+#include "pheuristic.h"
 #include "heuristic.h"
 
 class TO_AA_SIPP
@@ -11,7 +12,7 @@ class TO_AA_SIPP
 public:
     TO_AA_SIPP();
     ~TO_AA_SIPP();
-    Path findPath(Agent agent, const Map &map, std::list<Constraint> cons, Heuristic &h_values_);
+    Path find_path(Agent agent, const Map &map, std::list<Constraint> cons, PHeuristic &h_values_);
 
 private:
 
@@ -29,7 +30,7 @@ private:
     Path path;
     StatesContainer states;
     LineOfSight los;
-    Heuristic h_values;
+    PHeuristic h_values;
     std::map<std::pair<int, int>, std::vector<Move>> constraints;//stores sets of constraints associated with moves
     std::unordered_map<int, std::vector<std::pair<double, double>>> collision_intervals;//stores sets of collision intervals associated with cells
     double findEAT(oNode node);

@@ -9,12 +9,13 @@
 #include "heuristic.h"
 #include "simplex/simplex.h"
 #include "simplex/pilal.h"
-
+#include "TO-AA-SIPP/to_aa_sipp.h"
 class CBS
 {
 public:
     CBS() {}
     Solution find_solution(const Map &map, const Task &task, const Config &cfg);
+    Solution find_solution_new(const Map &map, const Task &task, const Config &cfg);
     bool init_root(const Map &map, const Task &task);
     std::list<Constraint> get_constraints(CBS_Node *node, int agent_id = -1);
     //std::list<Constraint> merge_constraints(std::list<Constraint> constraints);
@@ -33,9 +34,9 @@ public:
     std::vector<sPath> get_paths(CBS_Node *node, unsigned int agents_size);
     Conflict get_conflict(std::list<Conflict> &conflicts);
     CBS_Tree tree;
-    SIPP planner;
+    TO_AA_SIPP planner;
     Solution solution;
-    Heuristic h_values;
+    std::vector<PHeuristic> h_values;
     Config config;
     const Map* map;
 

@@ -22,6 +22,11 @@ public:
     void make_ids(int width);
     void make_ij(const Map &map);
     Agent get_agent(int id) const;
+    void add_agent(Agent a)
+    {
+        a.id = agents.size();
+        agents.push_back(a);
+    }
     void print_task()
     {
         //for(int i=0; i<agents.size(); i++)

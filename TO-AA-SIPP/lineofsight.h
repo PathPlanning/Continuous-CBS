@@ -186,6 +186,8 @@ public:
 
         int delta_x = std::abs(x1 - x2);
         int delta_y = std::abs(y1 - y2);
+        if(delta_x==0 && delta_y==0)
+            return true;
         if((delta_x > delta_y && x1 > x2) || (delta_y >= delta_x && y1 > y2))
         {
             std::swap(x1, x2);

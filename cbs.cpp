@@ -8,7 +8,7 @@ bool CBS::init_root(const Map &map, const Task &task)
     for(int i = 0; i < int(task.get_agents_size()); i++)
     {
         Agent agent = task.get_agent(i);
-        path = planner.find_path(agent, map, {}, h_values);
+        path = planner.find_path(agent, map, {}, h_values[agent.id]);
         if(path.cost < 0)
             return false;
         root.paths.push_back(path);
@@ -26,8 +26,8 @@ bool CBS::init_root(const Map &map, const Task &task)
             root.conflicts.push_back(conflict);
         else
         {
-            auto pathA = planner.find_path(task.get_agent(conflict.agent1), map, {get_constraint(conflict.agent1, conflict.move1, conflict.move2)}, h_values);
-            auto pathB = planner.find_path(task.get_agent(conflict.agent2), map, {get_constraint(conflict.agent2, conflict.move2, conflict.move1)}, h_values);
+            auto pathA = planner.find_path(task.get_agent(conflict.agent1), map, {get_constraint(conflict.agent1, conflict.move1, conflict.move2)}, h_values[conflict.agent1]);
+            auto pathB = planner.find_path(task.get_agent(conflict.agent2), map, {get_constraint(conflict.agent2, conflict.move2, conflict.move1)}, h_values[conflict.agent2]);
             //conflict.path1 = pathA;
             //conflict.path2 = pathB;
             if(pathA.cost > root.paths[conflict.agent1].cost && pathB.cost > root.paths[conflict.agent2].cost)
@@ -40,7 +40,9 @@ bool CBS::init_root(const Map &map, const Task &task)
             else
                 root.conflicts.push_back(conflict);
         }
+    //std::cout<<conflicts.size()<<" init conflicts\n";
     solution.init_cost = root.cost;
+    solution.initial_conflicts = conflicts.size();
     tree.add_node(root);
     return true;
 }
@@ -243,16 +245,19 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
 {
     config = cfg;
     this->map = &map;
-    h_values.init(map.get_size(), task.get_agents_size());
+    //h_values.init(map.get_size(), task.get_agents_size());
+    h_values.resize(task.get_agents_size());
     for(int i = 0; i < int(task.get_agents_size()); i++)
     {
         Agent agent = task.get_agent(i);
-        h_values.count(map, agent);
+        h_values[i].count(map, agent);
     }
     auto t = std::chrono::high_resolution_clock::now();
     int cardinal_solved = 0, semicardinal_solved = 0;
+    std::cout<<"ROOT\n";
     if(!this->init_root(map, task))
         return solution;
+    std::cout<<"ROOT INITIALIZED\n";
     solution.init_time = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t);
     solution.found = true;
     CBS_Node node;
@@ -271,6 +276,9 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
         auto parent = tree.get_front();
         node = *parent;
         node.cost -= node.h;
+        //std::cout<<node.id<<' '<<node.cost<<" "<<node.conflicts_num<<" "<<node.total_cons<<" NODE\n";
+        //if(id > 5)
+        //    break;
         parent->conflicts.clear();
         parent->cardinal_conflicts.clear();
         parent->semicard_conflicts.clear();
@@ -299,14 +307,17 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
         time_spent = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - time_now);
         time += time_spent.count();
         expanded++;
+        //std::cout<<"conflict between "<<conflict.move1.id1<<" "<<conflict.move2.id2<<" and "<<conflict.move2.id1<<" "<<conflict.move2.id2<<"\n";
 
         std::list<Constraint> constraintsA = get_constraints(&node, conflict.agent1);
         Constraint constraintA(get_constraint(conflict.agent1, conflict.move1, conflict.move2));
         constraintsA.push_back(constraintA);
+        //std::cout<<conflict.agent1<<' '<<constraintsA.size()<<" constraints "<<constraintA.id1<<" "<<constraintA.id2<<" constraint A\n";
         sPath pathA;
         //if(!config.use_cardinal || !config.cache_paths)
         {
-            pathA = planner.find_path(task.get_agent(conflict.agent1), map, constraintsA, h_values);
+            //std::cout<<"find path A\n";
+            pathA = planner.find_path(task.get_agent(conflict.agent1), map, constraintsA, h_values[conflict.agent1]);
             low_level_searches++;
             low_level_expanded += pathA.expanded;
         }
@@ -316,10 +327,12 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
         std::list<Constraint> constraintsB = get_constraints(&node, conflict.agent2);
         Constraint constraintB = get_constraint(conflict.agent2, conflict.move2, conflict.move1);
         constraintsB.push_back(constraintB);
+        //std::cout<<conflict.agent2<<' '<<constraintsB.size()<<" constraints "<<constraintB.id1<<" "<<constraintB.id2<<" constraint B\n";
         sPath pathB;
         //if(!config.use_cardinal || !config.cache_paths)
         {
-            pathB = planner.find_path(task.get_agent(conflict.agent2), map, constraintsB, h_values);
+            //std::cout<<"find path B\n";
+            pathB = planner.find_path(task.get_agent(conflict.agent2), map, constraintsB, h_values[conflict.agent2]);
             low_level_searches++;
             low_level_expanded += pathB.expanded;
         }
@@ -505,10 +518,10 @@ void CBS::find_new_conflicts(const Map &map, const Task &task, CBS_Node &node, s
         {
             constraintsA = get_constraints(&node, c.agent1);
             constraintsA.push_back(get_constraint(c.agent1, c.move1, c.move2));
-            auto new_pathA = planner.find_path(task.get_agent(c.agent1), map, constraintsA, h_values);
+            auto new_pathA = planner.find_path(task.get_agent(c.agent1), map, constraintsA, h_values[c.agent1]);
             constraintsB = get_constraints(&node, c.agent2);
             constraintsB.push_back(get_constraint(c.agent2, c.move2, c.move1));
-            auto new_pathB = planner.find_path(task.get_agent(c.agent2), map, constraintsB, h_values);
+            auto new_pathB = planner.find_path(task.get_agent(c.agent2), map, constraintsB, h_values[c.agent2]);
             double old_cost = get_cost(node, c.agent2);
             //c.path1 = new_pathA;
             //c.path2 = new_pathB;
@@ -543,10 +556,10 @@ void CBS::find_new_conflicts(const Map &map, const Task &task, CBS_Node &node, s
         {
             constraintsA = get_constraints(&node, c.agent2);
             constraintsA.push_back(get_constraint(c.agent2, c.move2, c.move1));
-            auto new_pathA = planner.find_path(task.get_agent(c.agent2), map, constraintsA, h_values);
+            auto new_pathA = planner.find_path(task.get_agent(c.agent2), map, constraintsA, h_values[c.agent2]);
             constraintsB = get_constraints(&node, c.agent1);
             constraintsB.push_back(get_constraint(c.agent1, c.move1, c.move2));
-            auto new_pathB = planner.find_path(task.get_agent(c.agent1), map, constraintsB, h_values);
+            auto new_pathB = planner.find_path(task.get_agent(c.agent1), map, constraintsB, h_values[c.agent1]);
             double old_cost = get_cost(node, c.agent1);
             //c.path1 = new_pathB;
             //c.path2 = new_pathA;
@@ -697,3 +710,212 @@ std::vector<sPath> CBS::get_paths(CBS_Node *node, unsigned int agents_size)
             paths.at(i) = curNode->paths.at(i);
     return paths;
 }
+
+Solution CBS::find_solution_new(const Map &map, const Task &task, const Config &cfg)
+{
+    config = cfg;
+    this->map = &map;
+    //h_values.init(map.get_size(), task.get_agents_size());
+    h_values.resize(task.get_agents_size());
+    for(int i = 0; i < int(task.get_agents_size()); i++)
+    {
+        Agent agent = task.get_agent(i);
+        h_values[i].count(map, agent);
+    }
+    auto t = std::chrono::high_resolution_clock::now();
+    int cardinal_solved = 0, semicardinal_solved = 0;
+    std::cout<<"ROOT\n";
+    if(!this->init_root(map, task))
+        return solution;
+    std::cout<<"ROOT INITIALIZED\n";
+    solution.init_time = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t);
+    solution.found = true;
+    CBS_Node node = *tree.get_front();
+    for(auto c: node.conflicts)
+    {
+        Task new_task;
+        new_task.add_agent(task.get_agent(c.agent1));
+        new_task.add_agent(task.get_agent(c.agent2));
+        CBS cbs;
+        auto solution = cbs.find_solution(map, new_task, cfg);
+        std::cout<<c.agent1<<" "<<c.agent2<<" "<<solution.init_cost<<" "<<solution.flowtime<<"\n";
+    }
+    std::chrono::duration<double> time_spent;
+    int expanded(1);
+    double time(0);
+    std::list<Conflict> conflicts;
+    Conflict conflict;
+    std::vector<int> conflicting_agents;
+    std::vector<std::pair<int, int>> conflicting_pairs;
+    int low_level_searches(0);
+    int low_level_expanded(0);
+
+    int id = 2;
+    do
+    {
+        auto parent = tree.get_front();
+        node = *parent;
+        node.cost -= node.h;
+        //std::cout<<node.id<<' '<<node.cost<<" "<<node.conflicts_num<<" "<<node.total_cons<<" NODE\n";
+        parent->conflicts.clear();
+        parent->cardinal_conflicts.clear();
+        parent->semicard_conflicts.clear();
+        auto paths = get_paths(&node, task.get_agents_size());
+        auto time_now = std::chrono::high_resolution_clock::now();
+        conflicts = node.conflicts;
+        auto cardinal_conflicts = node.cardinal_conflicts;
+        auto semicard_conflicts = node.semicard_conflicts;
+        if(conflicts.empty() && semicard_conflicts.empty() && cardinal_conflicts.empty())
+        {
+            break; //i.e. no conflicts => solution found
+        }
+        if(!cardinal_conflicts.empty())
+        {
+            conflict = get_conflict(cardinal_conflicts);
+            cardinal_solved++;
+        }
+        else if(!semicard_conflicts.empty())
+        {
+            conflict = get_conflict(semicard_conflicts);
+            semicardinal_solved++;
+        }
+        else
+            conflict = get_conflict(conflicts);
+        time_spent = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - time_now);
+        time += time_spent.count();
+        expanded++;
+        //std::cout<<"conflict between "<<conflict.move1.id1<<" "<<conflict.move2.id2<<" and "<<conflict.move2.id1<<" "<<conflict.move2.id2<<"\n";
+
+        std::list<Constraint> constraintsA = get_constraints(&node, conflict.agent1);
+        Constraint constraintA(get_constraint(conflict.agent1, conflict.move1, conflict.move2));
+        constraintsA.push_back(constraintA);
+        //std::cout<<conflict.agent1<<' '<<constraintsA.size()<<" constraints "<<constraintA.id1<<" "<<constraintA.id2<<" constraint A\n";
+        sPath pathA;
+        pathA = planner.find_path(task.get_agent(conflict.agent1), map, constraintsA, h_values[conflict.agent1]);
+        low_level_searches++;
+        low_level_expanded += pathA.expanded;
+
+        std::list<Constraint> constraintsB = get_constraints(&node, conflict.agent2);
+        Constraint constraintB = get_constraint(conflict.agent2, conflict.move2, conflict.move1);
+        constraintsB.push_back(constraintB);
+        //std::cout<<conflict.agent2<<' '<<constraintsB.size()<<" constraints "<<constraintB.id1<<" "<<constraintB.id2<<" constraint B\n";
+        sPath pathB;
+        //if(!config.use_cardinal || !config.cache_paths)
+        {
+            //std::cout<<"find path B\n";
+            pathB = planner.find_path(task.get_agent(conflict.agent2), map, constraintsB, h_values[conflict.agent2]);
+            low_level_searches++;
+            low_level_expanded += pathB.expanded;
+        }
+        //else
+        //    pathB = conflict.path2;
+
+        CBS_Node right({pathA}, parent, constraintA, node.cost + pathA.cost - get_cost(node, conflict.agent1), 0, node.total_cons + 1);
+        CBS_Node left({pathB}, parent, constraintB, node.cost + pathB.cost - get_cost(node, conflict.agent2), 0, node.total_cons + 1);
+        Constraint positive;
+        bool inserted = false;
+        bool left_ok = true, right_ok = true;
+        if(config.use_disjoint_splitting)
+        {
+            int agent1positives(0), agent2positives(0);
+            for(auto c: constraintsA)
+                if(c.positive)
+                    agent1positives++;
+            for(auto c: constraintsB)
+                if(c.positive)
+                    agent2positives++;
+            if(conflict.move1.id1 != conflict.move1.id2 && agent2positives > agent1positives && pathA.cost > 0)
+            {
+                positive = Constraint(conflict.agent1, constraintA.t1, constraintA.t2, conflict.move1.id1, conflict.move1.id2, true);
+                if(check_positive_constraints(constraintsA, positive))
+                {
+                    left.positive_constraint = positive;
+                    left.total_cons++;
+                    constraintsB.push_back(left.positive_constraint);
+                    inserted = true;
+                    //std::cout<<"added positive to "<<positive.agent<<"\n\n";
+                }
+                //else
+                //    right_ok = false;
+            }
+            if(conflict.move2.id1 != conflict.move2.id2 && !inserted && pathB.cost > 0)
+            {
+                positive = Constraint(conflict.agent2, constraintB.t1, constraintB.t2, conflict.move2.id1, conflict.move2.id2, true);
+                if(check_positive_constraints(constraintsB, positive))
+                {
+                    right.positive_constraint = positive;
+                    right.total_cons++;
+                    constraintsA.push_back(right.positive_constraint);
+                    inserted = true;
+                }
+                //else
+                //    left_ok = false;
+            }
+            if(conflict.move1.id1 != conflict.move1.id2 && !inserted && pathA.cost > 0)
+            {
+                positive = Constraint(conflict.agent1, constraintA.t1, constraintA.t2, conflict.move1.id1, conflict.move1.id2, true);
+                if(check_positive_constraints(constraintsA, positive))
+                {
+                    inserted = true;
+                    left.positive_constraint = positive;
+                    left.total_cons++;
+                    constraintsB.push_back(left.positive_constraint);
+                }
+                //else
+                //    right_ok = false;
+            }
+        }
+        right.id_str = node.id_str + "0";
+        left.id_str = node.id_str + "1";
+        right.id = id++;
+        left.id = id++;
+        if(right_ok && pathA.cost > 0 && validate_constraints(constraintsA, pathA.agentID))
+        {
+            time_now = std::chrono::high_resolution_clock::now();
+            find_new_conflicts(map, task, right, paths, pathA, conflicts, semicard_conflicts, cardinal_conflicts, low_level_searches, low_level_expanded);
+            time_spent = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - time_now);
+            time += time_spent.count();
+            if(right.cost > 0)
+            {
+                right.h = get_hl_heuristic(right.cardinal_conflicts);
+                right.cost += right.h;
+                tree.add_node(right);
+            }
+        }
+        if(left_ok && pathB.cost > 0 && validate_constraints(constraintsB, pathB.agentID))
+        {
+            time_now = std::chrono::high_resolution_clock::now();
+            find_new_conflicts(map, task, left, paths, pathB, conflicts, semicard_conflicts, cardinal_conflicts, low_level_searches, low_level_expanded);
+            time_spent = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - time_now);
+            time += time_spent.count();
+            if(left.cost > 0)
+            {
+                left.h = get_hl_heuristic(left.cardinal_conflicts);
+                left.cost += left.h;
+                tree.add_node(left);
+            }
+        }
+        time_spent = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t);
+        if(time_spent.count() > config.timelimit)
+        {
+            solution.found = false;
+            break;
+        }
+    }
+    while(tree.get_open_size() > 0);
+    solution.paths = get_paths(&node, task.get_agents_size());
+    solution.flowtime = node.cost;
+    solution.low_level_expansions = low_level_searches;
+    solution.low_level_expanded = double(low_level_expanded)/std::max(low_level_searches, 1);
+    solution.high_level_expanded = expanded;
+    solution.high_level_generated = int(tree.get_size());
+    for(auto path:solution.paths)
+        solution.makespan = (solution.makespan > path.cost) ? solution.makespan : path.cost;
+    solution.time = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t);
+    solution.check_time = time;
+    solution.cardinal_solved = cardinal_solved;
+    solution.semicardinal_solved = semicardinal_solved;
+
+    return solution;
+}
+
