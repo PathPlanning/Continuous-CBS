@@ -6,6 +6,7 @@ TARGET = CCBS
 win32 {
 QMAKE_LFLAGS += -static -static-libgcc -static-libstdc++
 }
+INCLUDEPATH += D:/boost_1_75_0
 SOURCES += main.cpp \
     cbs.cpp \
     config.cpp \
@@ -19,6 +20,7 @@ SOURCES += main.cpp \
     tinyxml2.cpp \
     task.cpp \
     sipp.cpp \
+    TO-AA-SIPP/to_aa_sipp.cpp \
     xml_logger.cpp \
     heuristic.cpp
 
@@ -48,5 +50,8 @@ HEADERS += \
     task.h \
     const.h \
     sipp.h \
+    TO-AA-SIPP/to_aa_sipp.h \
+    TO-AA-SIPP/states_container.h \
     xml_logger.h \
-    heuristic.h
+    heuristic.h \
+    TO-AA-SIPP/lineofsight.h

@@ -315,6 +315,10 @@ void Map::printPPM()
         }
 }
 
+bool Map::cell_on_grid(int i, int j) const
+{
+    return i >= 0 && j >= 0 && i < height and j < width;
+}
 
 bool Map::cell_is_obstacle(int i, int j) const
 {

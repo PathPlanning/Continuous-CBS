@@ -27,18 +27,20 @@ private:
 public:
     Map(double size, int k){ agent_size = size; connectedness = k; }
     ~Map(){}
-    int  get_size() const { return size; }
-    bool get_map(const char* FileName);
-    bool is_roadmap() const {return map_is_roadmap;}
-    bool cell_is_obstacle(int i, int j) const;
-    int  get_width() const {return width;}
-    gNode get_gNode(int id) const {if(id < int(nodes.size())) return nodes[id]; return gNode();}
-    int  get_id(int i, int j) const;
-    double get_i (int id) const;
-    double get_j (int id) const;
+    int     get_size() const { return size; }
+    bool    get_map(const char* FileName);
+    bool    is_roadmap() const {return map_is_roadmap;}
+    bool    cell_on_grid(int i, int j) const;
+    bool    cell_is_obstacle(int i, int j) const;
+    int     get_width() const {return width;}
+    int     get_height() const {return height;}
+    gNode   get_gNode(int id) const {if(id < int(nodes.size())) return nodes[id]; return gNode();}
+    int     get_id(int i, int j) const;
+    double  get_i (int id) const;
+    double  get_j (int id) const;
+    void    print_map();
+    void    printPPM();
     std::vector<Node> get_valid_moves(int id) const;
-    void print_map();
-    void printPPM();
 };
 
 #endif // MAP_H

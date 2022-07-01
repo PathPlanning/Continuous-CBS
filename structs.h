@@ -51,6 +51,43 @@ struct Node
     }
 };
 
+struct SafeInterval
+{
+    double begin;
+    double end;
+    int id;
+    SafeInterval(double begin_=0, double end_=CN_INFINITY, int id_=0):begin(begin_), end(end_), id(id_) {}
+    SafeInterval(const SafeInterval &other) { begin = other.begin; end = other.end; id = other.id;}
+};
+
+struct oNode
+{
+    oNode(int _i=-1, int _j=-1, double _g=-1, double _F=-1):i(_i),j(_j),g(_g),F(_F),Parent(nullptr){expanded = false;consistent = 0;best_Parent = nullptr; best_g = CN_INFINITY; parents.clear();}
+    ~oNode(){ Parent = nullptr; }
+    int     i, j;
+    int     id;
+    double  size;
+    double  g;
+    double  F;
+    double  heading;
+    const oNode*   Parent;
+    SafeInterval interval;
+    int interval_id;
+    int consistent;
+    bool expanded;
+    double h;
+    double best_g;
+    const oNode* best_Parent;
+    std::list<std::pair<const oNode*, double>> parents;
+
+    bool operator<(const oNode& n) const
+    {
+        if(this->i == n.i)
+            return this->j < n.j;
+        return this->i < n.i;
+    }
+};
+
 struct Position
 {
     double  i, j, t;
