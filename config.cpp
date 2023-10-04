@@ -8,6 +8,8 @@ Config::Config()
     timelimit = CN_TIMELIMIT;
     focal_weight = CN_FOCAL_WEIGHT;
     precision = CN_PRECISION;
+    hlh_type = CN_HLH_TYPE;
+    use_multicons = false;
 }
 
 

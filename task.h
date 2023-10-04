@@ -15,7 +15,7 @@
 class Task
 {
 private:
-    std::vector<Agent> agents;
+    std::map<int, Agent> agents;
 public:
     bool get_task(const char* FileName, int k=-1);
     unsigned int get_agents_size() const { return agents.size(); }
@@ -24,15 +24,19 @@ public:
     Agent get_agent(int id) const;
     void add_agent(Agent a)
     {
-        a.id = agents.size();
-        agents.push_back(a);
+        agents.insert({a.id, a});
+    }
+    std::vector<int> get_ids() const
+    {
+        std::vector<int> ids;
+        for(auto a:agents)
+            ids.push_back(a.first);
+        return ids;
     }
     void print_task()
     {
-        //for(int i=0; i<agents.size(); i++)
-        //    std::cout<<i<<","<<agents[i].start_i<<","<<agents[i].start_j<<","<<agents[i].goal_i<<","<<agents[i].goal_j<<"\n";
-        for(auto agent:agents)
-            std::cout<<"<agent start_i=\""<<agent.start_i<<"\" start_j=\""<<agent.start_j<<"\" goal_i=\""<<agent.goal_i<<"\" goal_j=\""<<agent.goal_j<<"\"/>\n";
+        for(auto a:agents)
+            std::cout<<"<agent start_i=\""<<a.second.start_i<<"\" start_j=\""<<a.second.start_j<<"\" goal_i=\""<<a.second.goal_i<<"\" goal_j=\""<<a.second.goal_j<<"\"/>\n";
     }
     Task();
 };

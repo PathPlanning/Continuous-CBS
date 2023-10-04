@@ -41,6 +41,12 @@ void Heuristic::count(const Map &map, Agent agent)
 
 }
 
+void Heuristic::count_aa(const Map &map, Agent agent)
+{
+
+
+}
+
 Node Heuristic::find_min()
 {
     Node min = *open.begin();

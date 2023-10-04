@@ -22,6 +22,11 @@ bool Map::get_map(const char* FileName)
     }
 }
 
+int Map::get_id(int i, int j) const
+{
+    return i*width+j;
+}
+
 double Map::get_i(int id) const
 {
     if(!map_is_roadmap)

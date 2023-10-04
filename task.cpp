@@ -34,7 +34,7 @@ bool Task::get_task(const char *FileName, int k)
         a.goal_j = agent->DoubleAttribute(CNS_TAG_GOAL_J);
         a.goal_id = agent->IntAttribute(CNS_TAG_GOAL_ID);
         a.id = int(agents.size());
-        agents.push_back(a);
+        agents[a.id] = a;
         if(int(agents.size()) == k)
             break;
     }
@@ -66,8 +66,8 @@ void Task::make_ij(const Map& map)
 
 Agent Task::get_agent(int id) const
 {
-    if(id >= 0 && id < int(agents.size()))
-        return agents[id];
+    if(agents.find(id) != agents.end())
+        return agents.at(id);
     else
         return Agent();
 }
