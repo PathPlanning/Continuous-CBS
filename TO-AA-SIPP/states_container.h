@@ -11,6 +11,7 @@
 #include <iostream>
 #include "lineofsight.h"
 #include "map.h"
+#include "pheuristic.h"
 
 using namespace boost::multi_index;
 struct by_ij;
@@ -169,7 +170,7 @@ public:
         states.insert(curNode);
     }
 
-    void update(oNode curNode, bool best)
+    void update(oNode curNode, bool best, PHeuristic& h)
     {
         typedef multi_index::index<by_ij>::type ij_index;
         ij_index & ij = states.get<by_ij>();
@@ -180,7 +181,7 @@ public:
             ij.modify(it, updateBest(curNode.best_g, curNode.best_Parent));
         if(curNode.consistent == 0)
         {
-            curNode.parents = this->findParents(curNode);
+            curNode.parents = this->findParents(curNode, h);
             for(auto pit = curNode.parents.begin(); pit!= curNode.parents.end(); pit++)
                 ij.modify(it, addParent(&(*pit->first), pit->second));
         }
@@ -189,9 +190,8 @@ public:
                 ij.modify(it, updateFG(it->parents.begin()->second, it->parents.begin()->first));
     }
 
-    std::list<std::pair<const oNode*, double>> findParents(const oNode& curNode)
+    std::list<std::pair<const oNode*, double>> findParents(const oNode& curNode, PHeuristic& h)
     {
-        LineOfSight los;
         std::list<std::pair<const oNode*, double>> parents;
         parents.clear();
         typedef multi_index::index<by_cons>::type cons_index;
@@ -217,14 +217,14 @@ public:
                 {
                     if(it->g + dist <= curNode.interval.end)
                     {
-                        if(!los.checkLine(curNode.i, curNode.j, it->i, it->j, *map))
+                        if(!h.get_los(curNode.i, curNode.j, it->i, it->j, *map))
                             continue;
                         parents.push_back({&(*it), it->g + dist});
                     }
                 }
                 else if(it->interval.end + dist >= curNode.interval.begin)
                 {
-                    if(!los.checkLine(curNode.i, curNode.j, it->i, it->j, *map))
+                    if(!h.get_los(curNode.i, curNode.j, it->i, it->j, *map))
                         continue;
                     parents.push_front({&(*it), curNode.interval.begin});
                 }
@@ -233,9 +233,8 @@ public:
         return parents;
     }
 
-    void updateNonCons(const oNode& curNode)
+    void updateNonCons(const oNode& curNode, PHeuristic &h)
     {
-        LineOfSight los;
         typedef multi_index::index<by_ij>::type ij_index;
         ij_index & ij = states.get<by_ij>();
         auto parent = &(*ij.find(boost::tuple<int, int, int>(curNode.i, curNode.j, curNode.interval_id)));
@@ -253,7 +252,7 @@ public:
                 {
                     if(new_g <= it->interval.end)
                     {
-                        if(!los.checkLine(parent->i, parent->j, it->i, it->j, *map))
+                        if(!h.get_los(parent->i, parent->j, it->i, it->j, *map))
                             continue;
                         non_cons.modify(it, addParent(parent, new_g));
                         if(it->g - new_g > CN_EPSILON)
@@ -262,7 +261,7 @@ public:
                 }
                 else if(curNode.interval.end + dist >= it->interval.begin)
                 {
-                    if(!los.checkLine(parent->i, parent->j, it->i, it->j, *map))
+                    if(!h.get_los(parent->i, parent->j, it->i, it->j, *map))
                         continue;
                     non_cons.modify(it, addParent(parent, it->interval.begin));
                     non_cons.modify(it, updateFG(it->interval.begin, parent));

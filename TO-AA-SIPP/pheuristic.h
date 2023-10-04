@@ -36,14 +36,21 @@ typedef multi_index_container<
   >
 > H_Container;
 
+inline std::string edge_id(int i1, int j1, int i2, int j2)
+{
+    return std::to_string(i1)+"-"+std::to_string(j1)+"-"+std::to_string(i2)+"-"+std::to_string(j2);
+}
+
 class PHeuristic
 {
     std::vector<std::vector<double>> h_values;
     H_Container open;
     int goal_i, goal_j;
     double dist(const hNode& a, const hNode& b){ return std::sqrt(pow(a.i - b.i, 2) + pow(a.j - b.j, 2)); }
+    std::map<std::string, bool> edges;
+    LineOfSight los;
 public:
-    PHeuristic(){}
+    PHeuristic(){los.setSize(0.353553);}
     void init(unsigned int width, unsigned int height)
     {
         h_values.clear();
@@ -51,11 +58,23 @@ public:
         for(unsigned int i = 0; i < height; i++)
             h_values[i].resize(width, CN_INFINITY);
     }
+    bool get_los(int i1, int j1, int i2, int j2, const Map &map)
+    {
+        //return los.checkLine(i1, j1, i2, j2, map);
+        std::string edge = edge_id(i1,j1,i2,j2);
+        auto in_edges = edges.find(edge);
+        if(in_edges == edges.end())
+        {
+            bool has_edge = los.checkLine(i1, j1, i2, j2, map);
+            edges.insert({edge, has_edge});
+            edges.insert({edge_id(i2,j2,i1,j1), has_edge});
+            return has_edge;
+        }
+        return in_edges->second;
+    }
     void count(const Map &map, Agent agent)
     {
         init(map.get_width(), map.get_height());
-        LineOfSight los;
-        los.setSize(0.353553);
         hNode curNode(agent.goal_i, agent.goal_j, 0);
         open.clear();
         open.insert(curNode);
@@ -77,6 +96,9 @@ public:
                             if(h_values[newNode.i][newNode.j] > newNode.g)
                                 if(los.checkLine(curNode.i, curNode.j, newNode.i, newNode.j, map))
                                 {
+                                    edges.insert({edge_id(curNode.i, curNode.j, newNode.i, newNode.j), true});
+                                    edges.insert({edge_id(newNode.i, newNode.j, curNode.i, curNode.j), true});
+
                                     h_values[newNode.i][newNode.j] = newNode.g;
                                     auto it = open.get<1>().find(newNode.id);
                                     if(it != open.get<1>().end())
@@ -88,14 +110,28 @@ public:
                                     }
                                     open.insert(newNode);
                                 }
+                                else
+                                {
+                                    edges.insert({edge_id(curNode.i, curNode.j, newNode.i, newNode.j), false});
+                                    edges.insert({edge_id(newNode.i, newNode.j, curNode.i, curNode.j), false});
+                                }
                 }
         }
     }
     void set_goal(int i, int j) { goal_i = i; goal_j = j;}
     unsigned int get_size() const { return h_values[0].size(); }
-    double get_value(int i, int j) { if(h_values.empty())
-                                        return sqrt(pow(i - goal_i,2) + pow(j - goal_j,2));
-                                     return h_values[i][j]; }
+    double get_value(int i, int j)
+    {
+        if(h_values[i][j] != CN_INFINITY)
+            return h_values[i][j];
+        //if(h_values.empty())
+            return sqrt(pow(i - goal_i,2) + pow(j - goal_j,2));
+        return h_values[i][j];
+    }
+    void set_value(int i, int j, double v)
+    {
+        h_values[i][j] = v;
+    }
 };
 
 #endif // PHEURISTIC_H

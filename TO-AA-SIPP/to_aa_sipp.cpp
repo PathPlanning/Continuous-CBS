@@ -201,6 +201,7 @@ void TO_AA_SIPP::make_constraints(const std::list<Constraint> &cons)
         }
         */
     }
+    //std::cout<<collision_intervals.size()<<" "<<constraints.size()<<" constraints\n";
 }
 
 double TO_AA_SIPP::findEAT(oNode node)
@@ -217,6 +218,8 @@ double TO_AA_SIPP::findEAT(oNode node)
             //std::cout<<"new node.g="<<node.g<<" start="<<node.g - cost<<"\n";
         }
     }
+    if(node.Parent->interval.end + cost < node.g)
+        node.g = CN_INFINITY;
     return node.g;
 }
 
@@ -224,10 +227,10 @@ Path TO_AA_SIPP::find_path(Agent agent, const Map &map, std::list<Constraint> co
 {
     //std::cout<<"find path for "<<agent.id<<" "<<agent.start_id<<" "<<agent.goal_id<<"\n";
     h_values = h_values_;
-    //h_values.set_goal(agent.goal_i, agent.goal_j);
+    h_values.set_goal(agent.goal_i, agent.goal_j);
     Path resultPath;
     path = Path();
-    states.clear();
+    clear();
     initStates(agent, map, cons);
     oNode curNode(states.getMin()), newNode;
     bool pathFound(false);
@@ -239,28 +242,30 @@ Path TO_AA_SIPP::find_path(Agent agent, const Map &map, std::list<Constraint> co
         newNode = curNode;
         //std::cout<<newNode.i<<" "<<newNode.j<<" "<<newNode.g<<" "<<newNode.F<<" "<<newNode.Parent->i<<" "<<newNode.Parent->j<<" curNode\n";
         if(newNode.consistent == 0)
-            if(!los.checkLine(newNode.i, newNode.j, newNode.Parent->i, newNode.Parent->j, map))
+        {
+            if(!h_values.get_los(newNode.i, newNode.j, newNode.Parent->i, newNode.Parent->j, map))
             {
-                states.update(newNode, false);
+                states.update(newNode, false, h_values);
                 curNode = states.getMin();
                 continue;
             }
+        }
         newNode.g = findEAT(newNode);
         if(newNode.g - newNode.best_g < 0)
         {
             newNode.best_g = newNode.g;
             newNode.best_Parent = newNode.Parent;
-            states.update(newNode, true);
+            states.update(newNode, true, h_values);
         }
         else
-            states.update(newNode, false);
+            states.update(newNode, false, h_values);
 
         curNode = states.getMin();
-        if(fabs(newNode.best_g + newNode.h - curNode.F) < CN_EPSILON)
+        if(newNode.best_g + newNode.h < curNode.F + CN_EPSILON)
         {
             expanded++;
             states.expand(newNode);
-            states.updateNonCons(newNode);
+            states.updateNonCons(newNode, h_values);
             if(newNode.i == agent.goal_i && newNode.j == agent.goal_j && newNode.interval.end == CN_INFINITY)
             {
                 newNode.g = newNode.best_g;
@@ -279,6 +284,9 @@ Path TO_AA_SIPP::find_path(Agent agent, const Map &map, std::list<Constraint> co
         path.expanded = expanded;
         //for(auto n:path.nodes)
         //    std::cout<<n.i<<" "<<n.j<<" "<<n.g<<"\n";
+        //for(auto it = states.states.begin(); it != states.states.end(); it++)
+        //    if(it->consistent == 1)
+        //        h_values_.set_value(it->i, it->j, newNode.g - it->g); //bullshit
         return path;
     }
     else

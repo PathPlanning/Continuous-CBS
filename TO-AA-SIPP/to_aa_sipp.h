@@ -12,6 +12,7 @@ class TO_AA_SIPP
 public:
     TO_AA_SIPP();
     ~TO_AA_SIPP();
+    //std::vector<Path> find_multiple_paths(Agent agent, const Map &map, std::list<Constraint> cons, PHeuristic &h_values_, std::pair<Node, Node> colliding_edge);
     Path find_path(Agent agent, const Map &map, std::list<Constraint> cons, PHeuristic &h_values_);
 
 private:
