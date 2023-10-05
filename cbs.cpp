@@ -372,7 +372,7 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
 {
     config = cfg;
     config.connectdness = -1;
-    config.use_multicons = false;
+    config.use_multicons = true;
     config.use_disjoint_splitting = false;
     config.timelimit = 100;
     this->map = &map;
@@ -736,7 +736,7 @@ CBS_Node* CBS::expand(CBS_Tree *tree, const Task &task)
     auto parent = tree->get_front();
     auto node = *parent;
     node.cost -= node.h;
-    //std::cout<<tree->get_size()<<" "<<node.id<<" "<<node.cost<<" "<<node.conflicts_num<<" "<<node.conflicts.size()<<" "<<node.cardinal_conflicts.size()<<" "<<node.semicard_conflicts.size()<<" "<<node.total_cons<<" NODE\n";
+    //std::cout<<all_nodes.size()<<" "<<node.id<<" "<<node.cost<<" "<<node.conflicts_num<<" "<<node.conflicts.size()<<" "<<node.cardinal_conflicts.size()<<" "<<node.semicard_conflicts.size()<<" "<<node.total_cons<<" NODE\n";
     parent->conflicts.clear();
     parent->cardinal_conflicts.clear();
     parent->semicard_conflicts.clear();
@@ -855,9 +855,12 @@ CBS_Node* CBS::expand(CBS_Tree *tree, const Task &task)
         pathB = planner.find_path(task.get_agent(conflict.agent2), *map, constraintsB, h_values);
     else
         pathB = aa_planner.find_path(task.get_agent(conflict.agent2), *map, constraintsB, aa_h_values[conflict.agent2]);
-    //for(auto p:pathB.nodes)
-    //    std::cout<<p.id<<" "<<p.g<<"->";
-    //std::cout<<"\n";
+    /*for(auto p:pathB.nodes)
+        std::cout<<p.id<<" "<<p.g<<"->";
+    std::cout<<"\n";
+    for(auto p:pathA.nodes)
+        std::cout<<p.id<<" "<<p.g<<"->";
+    std::cout<<"\n";*/
     //for(auto c: constraintsB)
     //    std::cout<<c.id1<<" "<<c.t1<<"  "<<c.id2<<" "<<c.t2<<"\n";
     //std::cout<<"\n";
@@ -1088,6 +1091,8 @@ std::pair<std::vector<Move>,std::vector<Move>> CBS::find_similar_actions(Move a,
     std::ofstream out;
     out.open("log_moves.xml", std::ios::app);
     out<<"\n\n";
+    Constraint initA = get_constraint(0, a, b);
+    Constraint initB = get_constraint(0, b, a);
     while(i < cells_a.size() or i < cells_b.size())
     {
         if(i < cells_a.size())
@@ -1104,7 +1109,9 @@ std::pair<std::vector<Move>,std::vector<Move>> CBS::find_similar_actions(Move a,
                 }
             if(has_col)
             {
-                moves_a.push_back(new_move);
+                Constraint newB = get_constraint(0, b, new_move);
+                if(newB.t2 >= initB.t2)
+                    moves_a.push_back(new_move);
                 out<<"\t\t\t<constraint i1=\""<<map->get_i(a.id1)<<"\" j1=\""<<map->get_j(a.id1)<<"\" i2=\""<<map->get_i(id_a)<<"\" j2=\""<<map->get_j(id_a)<<"\" t1=\""<<a.t1<<"\" c.t2=\""<<a.t2<<"\" positive=\""<<false<<"\" agent_id=\""<<0<<"\"/>\n";
             }
         }
@@ -1121,8 +1128,54 @@ std::pair<std::vector<Move>,std::vector<Move>> CBS::find_similar_actions(Move a,
                 }
             if(has_col)
             {
+                Constraint newA = get_constraint(0, a, new_move);
+                if(newA.t2 >= initA.t2)
+                    moves_b.push_back(new_move);
                 out<<"\t\t\t<constraint i1=\""<<map->get_i(b.id1)<<"\" j1=\""<<map->get_j(b.id1)<<"\" i2=\""<<map->get_i(id_b)<<"\" j2=\""<<map->get_j(id_b)<<"\" t1=\""<<a.t1<<"\" c.t2=\""<<a.t2<<"\" positive=\""<<false<<"\" agent_id=\""<<0<<"\"/>\n";
-                moves_b.push_back(new_move);
+            }
+        }
+        i++;
+    }
+    i = 1;
+    while(i < cells_a.size() or i < cells_b.size())
+    {
+        if(i < cells_a.size())
+        {
+            int id_a = map->get_id(cells_a[cells_a.size() - i].first, cells_a[cells_a.size() - i].second);
+            Move new_move = Move(a.t1 + dist(a.id1, id_a), a.t1+dist(a.id1, id_a)+dist(a.id2, id_a), id_a, a.id2);
+            bool has_col = true;
+            Constraint con;
+            for(auto c:moves_b)
+                if(!check_conflict(new_move, c))
+                {
+                    has_col = false;
+                    break;
+                }
+            if(has_col)
+            {
+                Constraint newB = get_constraint(0, b, new_move);
+                if(newB.t2 >= initB.t2)
+                    moves_a.push_back(new_move);
+                out<<"\t\t\t<constraint i1=\""<<map->get_i(a.id1)<<"\" j1=\""<<map->get_j(a.id1)<<"\" i2=\""<<map->get_i(id_a)<<"\" j2=\""<<map->get_j(id_a)<<"\" t1=\""<<a.t1<<"\" c.t2=\""<<a.t2<<"\" positive=\""<<false<<"\" agent_id=\""<<0<<"\"/>\n";
+            }
+        }
+        if(i < cells_b.size())
+        {
+            int id_b = map->get_id(cells_b[cells_b.size() - i].first, cells_b[cells_b.size() - i].second);
+            Move new_move = Move(b.t1+dist(b.id1, id_b), b.t1+dist(b.id1, id_b)+dist(b.id2, id_b), id_b, b.id2);
+            bool has_col = true;
+            for(auto c:moves_a)
+                if(!check_conflict(new_move, c))
+                {
+                    has_col = false;
+                    break;
+                }
+            if(has_col)
+            {
+                Constraint newA = get_constraint(0, a, new_move);
+                if(newA.t2 >= initA.t2)
+                    moves_b.push_back(new_move);
+                out<<"\t\t\t<constraint i1=\""<<map->get_i(b.id1)<<"\" j1=\""<<map->get_j(b.id1)<<"\" i2=\""<<map->get_i(id_b)<<"\" j2=\""<<map->get_j(id_b)<<"\" t1=\""<<a.t1<<"\" c.t2=\""<<a.t2<<"\" positive=\""<<false<<"\" agent_id=\""<<0<<"\"/>\n";
             }
         }
         i++;
