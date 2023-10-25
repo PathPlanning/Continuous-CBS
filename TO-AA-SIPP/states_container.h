@@ -270,6 +270,18 @@ public:
         }
 
     }
+
+    std::vector<oNode> get_nodes_by_ij(int i, int j)
+    {
+        std::vector<oNode> nodes;
+        typedef multi_index::index<by_ij>::type ij_index;
+        ij_index & ij = states.get<by_ij>();
+        auto range = ij.equal_range(boost::make_tuple(i,j));
+        for(auto it = range.first; it != range.second; it++)
+            nodes.push_back(*it);
+        return nodes;
+    }
+
     void findAndPrint(int i, int j)
     {
         typedef multi_index::index<by_ij>::type ij_index;

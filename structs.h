@@ -17,12 +17,22 @@
 using boost::multi_index_container;
 using namespace boost::multi_index;
 
+struct SafeInterval
+{
+    double begin;
+    double end;
+    int id;
+    SafeInterval(double begin_=0, double end_=CN_INFINITY, int id_=0):begin(begin_), end(end_), id(id_) {}
+    SafeInterval(const SafeInterval &other) { begin = other.begin; end = other.end; id = other.id;}
+};
+
 struct Agent
 {
     double start_i, start_j, goal_i, goal_j;
     int start_id, goal_id;
     int id;
     double size;
+    std::vector<SafeInterval> start_intervals, goal_intervals;
     Agent(int s_id = -1, int g_id = -1, int _id = -1)
         :start_id(s_id), goal_id(g_id), id(_id) {}
 };
@@ -49,15 +59,6 @@ struct Node
     {
         return this->g < other.g;
     }
-};
-
-struct SafeInterval
-{
-    double begin;
-    double end;
-    int id;
-    SafeInterval(double begin_=0, double end_=CN_INFINITY, int id_=0):begin(begin_), end(end_), id(id_) {}
-    SafeInterval(const SafeInterval &other) { begin = other.begin; end = other.end; id = other.id;}
 };
 
 struct oNode

@@ -372,8 +372,8 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
 {
     config = cfg;
     config.connectdness = -1;
-    config.use_multicons = true;
-    config.use_disjoint_splitting = false;
+    config.use_multicons = false;
+    config.use_disjoint_splitting = true;
     config.timelimit = 100;
     this->map = &map;
     if(config.connectdness > 0)
@@ -397,10 +397,10 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
     }
     auto t = std::chrono::high_resolution_clock::now();
     int cardinal_solved = 0, semicardinal_solved = 0;
-    std::cout<<"ROOT\n";
+    //std::cout<<"ROOT\n";
     if(!this->init_root(map, task))
         return solution;
-    std::cout<<"ROOT INITIALIZED\n";
+    //std::cout<<"ROOT INITIALIZED\n";
     solution.init_time = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t);
     solution.found = true;
     CBS_Node *goal;
@@ -436,26 +436,26 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
         validate_paths(parent, task);
         tree->pop_front();
     }*/
-    for(int i=0; i<task.get_agents_size(); i++)
+    /*for(int i=0; i<task.get_agents_size(); i++)
     {
         auto cons = get_constraints(goal, i);
         for(auto c:cons)
             std::cout<<c.agent<<" "<<c.id1<<" "<<c.id2<<" "<<c.t1<<" "<<c.t2<<"\n";
-    }
+    }*/
     solution.paths = get_paths(goal, task.get_ids());
-    for(auto path:solution.paths)
+    /*for(auto path:solution.paths)
     {
         for(auto p:path.second.nodes)
             std::cout<<"{"<<p.id<<","<<p.g<<"},";
         std::cout<<std::endl;
-    }
-    auto n = goal;
+    }*/
+    /*auto n = goal;
     while(n)
     {
         std::cout<<n->id<<" ";
         n = n->parent;
     }
-    std::cout<<" ids of solution sequence\n";
+    std::cout<<" ids of solution sequence\n";*/
     solution.flowtime = goal->cost;
     solution.low_level_expansions = low_level_searches;
     solution.low_level_expanded = double(low_level_expanded)/std::max(low_level_searches, 1);
@@ -468,9 +468,9 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
     solution.cardinal_solved = cardinal_solved;
     solution.semicardinal_solved = semicardinal_solved;
     std::ofstream out;
-    out.open("log.txt", std::ios::app);
-    out<<task.get_agents_size()<<" "<<solution.found<<" "<<solution.time.count()<<" "<<solution.makespan<<" "<<solution.flowtime<<" "<<solution.init_cost<<" "<<solution.initial_conflicts<<" "<<solution.check_time<<" "<<solution.high_level_expanded<<" "<<solution.low_level_expansions<<" "<<solution.low_level_expanded<<" "<<goal->total_cons<<"\n";
-    out.close();
+    //out.open("log.txt", std::ios::app);
+    //out<<task.get_agents_size()<<" "<<solution.found<<" "<<solution.time.count()<<" "<<solution.makespan<<" "<<solution.flowtime<<" "<<solution.init_cost<<" "<<solution.initial_conflicts<<" "<<solution.check_time<<" "<<solution.high_level_expanded<<" "<<solution.low_level_expansions<<" "<<solution.low_level_expanded<<" "<<goal->total_cons<<"\n";
+    //out.close();
     return solution;
 }
 
@@ -734,6 +734,7 @@ bool CBS::validate_paths(CBS_Node *node, const Task &task)
 CBS_Node* CBS::expand(CBS_Tree *tree, const Task &task)
 {
     auto parent = tree->get_front();
+    //std::cout<<parent<<" parent\n";
     auto node = *parent;
     node.cost -= node.h;
     //std::cout<<all_nodes.size()<<" "<<node.id<<" "<<node.cost<<" "<<node.conflicts_num<<" "<<node.conflicts.size()<<" "<<node.cardinal_conflicts.size()<<" "<<node.semicard_conflicts.size()<<" "<<node.total_cons<<" NODE\n";
@@ -760,8 +761,8 @@ CBS_Node* CBS::expand(CBS_Tree *tree, const Task &task)
     if(conflicts.empty() || node.id < 100)
     {
         std::ofstream out;
-        out.open("log_multi.xml", std::ios::app);
-        out<<"\t\t<node id=\""<<node.id<<"\" cost=\""<<node.cost<<"\" constraints_num=\""<<node.total_cons<<"\">\n";
+        //out.open("log_multi.xml", std::ios::app);
+        //out<<"\t\t<node id=\""<<node.id<<"\" cost=\""<<node.cost<<"\" constraints_num=\""<<node.total_cons<<"\">\n";
         for(auto p:paths)
         {
             out<<"\t\t\t<path id=\""<<p.first<<"\">\n";
@@ -769,18 +770,18 @@ CBS_Node* CBS::expand(CBS_Tree *tree, const Task &task)
             {
                 auto n1 = p.second.nodes[i];
                 auto n2 = p.second.nodes[i+1];
-                out<<"\t\t\t\t<section i1=\""<<map->get_i(n1.id)<<"\" j1=\""<<map->get_j(n1.id)<<"\" i2=\""<<map->get_i(n2.id)<<"\" j2=\""<<map->get_j(n2.id)<<"\" duration=\""<<n2.g-n1.g<<"\"/>\n";
+                //out<<"\t\t\t\t<section i1=\""<<map->get_i(n1.id)<<"\" j1=\""<<map->get_j(n1.id)<<"\" i2=\""<<map->get_i(n2.id)<<"\" j2=\""<<map->get_j(n2.id)<<"\" duration=\""<<n2.g-n1.g<<"\"/>\n";
             }
-            out<<"\t\t\t</path>\n";
+            //out<<"\t\t\t</path>\n";
         }
         for(int i=0; i<task.get_agents_size(); i++)
         {
             auto cons = get_constraints(&node, i);
-            for(auto c: cons)
-                out<<"\t\t\t<constraint i1=\""<<map->get_i(c.id1)<<"\" j1=\""<<map->get_j(c.id1)<<"\" i2=\""<<map->get_i(c.id2)<<"\" j2=\""<<map->get_j(c.id2)<<"\" t1=\""<<c.t1<<"\" c.t2=\""<<c.t2<<"\" positive=\""<<c.positive<<"\" agent_id=\""<<i<<"\"/>\n";
+            //for(auto c: cons)
+            //    out<<"\t\t\t<constraint i1=\""<<map->get_i(c.id1)<<"\" j1=\""<<map->get_j(c.id1)<<"\" i2=\""<<map->get_i(c.id2)<<"\" j2=\""<<map->get_j(c.id2)<<"\" t1=\""<<c.t1<<"\" c.t2=\""<<c.t2<<"\" positive=\""<<c.positive<<"\" agent_id=\""<<i<<"\"/>\n";
         }
-        out<<"\t\t</node>\n";
-        out.close();
+        //out<<"\t\t</node>\n";
+        //out.close();
     }
     Conflict conflict;
     if(conflicts.empty() && semicard_conflicts.empty() && cardinal_conflicts.empty())
@@ -947,6 +948,7 @@ CBS_Node* CBS::expand(CBS_Tree *tree, const Task &task)
             right.id = all_nodes.size();
             all_nodes.push_back(right);
             //validate_cons(&right, task);
+            //std::cout<<right.paths.size()<<" "<<right.id_str<<" right paths size\n";
             tree->add_node(&all_nodes.back());
         }
     }
@@ -960,6 +962,7 @@ CBS_Node* CBS::expand(CBS_Tree *tree, const Task &task)
             left.id = all_nodes.size();
             all_nodes.push_back(left);
             //validate_cons(&left, task);
+            //std::cout<<left.paths.size()<<" "<<left.id_str<<" left paths size\n";
             tree->add_node(&all_nodes.back());
         }
     }
@@ -1080,6 +1083,24 @@ Solution CBS::find_solution_new(const Map &map, const Task &task, const Config &
     return solution;
 }
 
+std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> CBS::get_similar_actions(int i1, int j1, int i2, int j2)
+{
+    std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> result;
+    int sign_i = i1 == i2 ? 0 : i1 < i2 ? 1: -1;
+    int sign_j = j1 == j2 ? 0 : j1 < j2 ? 1: -1;
+    LineOfSight los;
+    auto cells_a = los.getCellsCrossedByLine(i1, j1, i2, j2, *map);
+    for(auto a: cells_a)
+        for(auto b: cells_a)
+        {
+            int sign_first = a.first == b.first ? 0 : a.first < b.first ? 1: -1;
+            int sign_second = a.second == b.second ? 0 : a.second < b.second ? 1: -1;
+            if(sign_first == sign_i and sign_j == sign_second)
+                result.emplace_back(a, b);
+        }
+    return result;
+}
+
 std::pair<std::vector<Move>,std::vector<Move>> CBS::find_similar_actions(Move a, Move b)
 {
     std::vector<Move> moves_a = {a};
@@ -1087,10 +1108,12 @@ std::pair<std::vector<Move>,std::vector<Move>> CBS::find_similar_actions(Move a,
     LineOfSight los;
     auto cells_a = los.getCellsCrossedByLine(map->get_i(a.id1), map->get_j(a.id1), map->get_i(a.id2), map->get_j(a.id2), *map);
     auto cells_b = los.getCellsCrossedByLine(map->get_i(b.id1), map->get_j(b.id1), map->get_i(b.id2), map->get_j(b.id2), *map);
+    //auto actions_a = get_similar_actions(map->get_i(a.id1), map->get_j(a.id1), map->get_i(a.id2), map->get_j(a.id2));
+    //auto actions_b = get_similar_actions(map->get_i(b.id1), map->get_j(b.id1), map->get_i(b.id2), map->get_j(b.id2));
     int i(1);
     std::ofstream out;
-    out.open("log_moves.xml", std::ios::app);
-    out<<"\n\n";
+    //out.open("log_moves.xml", std::ios::app);
+    //out<<"\n\n";
     Constraint initA = get_constraint(0, a, b);
     Constraint initB = get_constraint(0, b, a);
     while(i < cells_a.size() or i < cells_b.size())
@@ -1112,9 +1135,10 @@ std::pair<std::vector<Move>,std::vector<Move>> CBS::find_similar_actions(Move a,
                 Constraint newB = get_constraint(0, b, new_move);
                 if(newB.t2 >= initB.t2)
                     moves_a.push_back(new_move);
-                out<<"\t\t\t<constraint i1=\""<<map->get_i(a.id1)<<"\" j1=\""<<map->get_j(a.id1)<<"\" i2=\""<<map->get_i(id_a)<<"\" j2=\""<<map->get_j(id_a)<<"\" t1=\""<<a.t1<<"\" c.t2=\""<<a.t2<<"\" positive=\""<<false<<"\" agent_id=\""<<0<<"\"/>\n";
+                //out<<"\t\t\t<constraint i1=\""<<map->get_i(a.id1)<<"\" j1=\""<<map->get_j(a.id1)<<"\" i2=\""<<map->get_i(id_a)<<"\" j2=\""<<map->get_j(id_a)<<"\" t1=\""<<a.t1<<"\" c.t2=\""<<a.t2<<"\" positive=\""<<false<<"\" agent_id=\""<<0<<"\"/>\n";
             }
         }
+
         if(i < cells_b.size())
         {
             int id_b = map->get_id(cells_b[cells_b.size() - i].first, cells_b[cells_b.size() - i].second);
@@ -1131,7 +1155,7 @@ std::pair<std::vector<Move>,std::vector<Move>> CBS::find_similar_actions(Move a,
                 Constraint newA = get_constraint(0, a, new_move);
                 if(newA.t2 >= initA.t2)
                     moves_b.push_back(new_move);
-                out<<"\t\t\t<constraint i1=\""<<map->get_i(b.id1)<<"\" j1=\""<<map->get_j(b.id1)<<"\" i2=\""<<map->get_i(id_b)<<"\" j2=\""<<map->get_j(id_b)<<"\" t1=\""<<a.t1<<"\" c.t2=\""<<a.t2<<"\" positive=\""<<false<<"\" agent_id=\""<<0<<"\"/>\n";
+                //out<<"\t\t\t<constraint i1=\""<<map->get_i(b.id1)<<"\" j1=\""<<map->get_j(b.id1)<<"\" i2=\""<<map->get_i(id_b)<<"\" j2=\""<<map->get_j(id_b)<<"\" t1=\""<<a.t1<<"\" c.t2=\""<<a.t2<<"\" positive=\""<<false<<"\" agent_id=\""<<0<<"\"/>\n";
             }
         }
         i++;
@@ -1156,7 +1180,7 @@ std::pair<std::vector<Move>,std::vector<Move>> CBS::find_similar_actions(Move a,
                 Constraint newB = get_constraint(0, b, new_move);
                 if(newB.t2 >= initB.t2)
                     moves_a.push_back(new_move);
-                out<<"\t\t\t<constraint i1=\""<<map->get_i(a.id1)<<"\" j1=\""<<map->get_j(a.id1)<<"\" i2=\""<<map->get_i(id_a)<<"\" j2=\""<<map->get_j(id_a)<<"\" t1=\""<<a.t1<<"\" c.t2=\""<<a.t2<<"\" positive=\""<<false<<"\" agent_id=\""<<0<<"\"/>\n";
+                //out<<"\t\t\t<constraint i1=\""<<map->get_i(a.id1)<<"\" j1=\""<<map->get_j(a.id1)<<"\" i2=\""<<map->get_i(id_a)<<"\" j2=\""<<map->get_j(id_a)<<"\" t1=\""<<a.t1<<"\" c.t2=\""<<a.t2<<"\" positive=\""<<false<<"\" agent_id=\""<<0<<"\"/>\n";
             }
         }
         if(i < cells_b.size())
@@ -1175,12 +1199,12 @@ std::pair<std::vector<Move>,std::vector<Move>> CBS::find_similar_actions(Move a,
                 Constraint newA = get_constraint(0, a, new_move);
                 if(newA.t2 >= initA.t2)
                     moves_b.push_back(new_move);
-                out<<"\t\t\t<constraint i1=\""<<map->get_i(b.id1)<<"\" j1=\""<<map->get_j(b.id1)<<"\" i2=\""<<map->get_i(id_b)<<"\" j2=\""<<map->get_j(id_b)<<"\" t1=\""<<a.t1<<"\" c.t2=\""<<a.t2<<"\" positive=\""<<false<<"\" agent_id=\""<<0<<"\"/>\n";
+                //out<<"\t\t\t<constraint i1=\""<<map->get_i(b.id1)<<"\" j1=\""<<map->get_j(b.id1)<<"\" i2=\""<<map->get_i(id_b)<<"\" j2=\""<<map->get_j(id_b)<<"\" t1=\""<<a.t1<<"\" c.t2=\""<<a.t2<<"\" positive=\""<<false<<"\" agent_id=\""<<0<<"\"/>\n";
             }
         }
         i++;
     }
-    out.close();
+    //out.close();
     //std::cout<<moves_a.size()<<" "<<moves_b.size()<<" moves found\n";
     return {moves_a, moves_b};
 }

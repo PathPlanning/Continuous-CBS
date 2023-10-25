@@ -16,7 +16,10 @@ public:
     Path find_path(Agent agent, const Map &map, std::list<Constraint> cons, PHeuristic &h_values_);
 
 private:
-
+    double check_endpoint(Node start, Node goal);
+    Path add_part(Path result, Path part);
+    std::vector<Path> find_partial_path(Agent agent, const Map &map, std::list<Constraint> cons, double max_f = CN_INFINITY);
+    std::vector<Node> get_endpoints(int node_id, double node_i, double node_j, double t1, double t2);
     double calculateDistanceFromCellToCell(double start_i, double start_j, double fin_i, double fin_j);
     //bool lineOfSight(int i1, int j1, int i2, int j2, const Map &map);
     void findSuccessors(const oNode &curNode, const Map &Map, std::list<oNode> &succs, int numOfCurAgent){}
@@ -27,6 +30,7 @@ private:
     void add_collision_interval(int id, std::pair<double, double> interval);
     void add_move_constraint(Move move);
     int constraints_type;
+    std::vector<Move> landmarks;
     unsigned int closeSize, openSize;
     Path path;
     StatesContainer states;

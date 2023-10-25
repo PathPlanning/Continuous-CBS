@@ -54,7 +54,7 @@ public:
     std::pair<std::vector<Move>, std::vector<Move> > find_similar_actions(Move a, Move b);
     std::pair<std::vector<Move>,std::vector<Move>> find_similar_actions(const Task &task, Conflict conflict, std::list<Constraint> consA, std::list<Constraint> consB);
     std::vector<Constraint> get_multiconstraint(int agent, std::vector<Move> moves_a, std::vector<Move> moves_b);
-
+    std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> get_similar_actions(int i1, int j1, int i2, int j2);
 };
 
 #endif // CBS_H

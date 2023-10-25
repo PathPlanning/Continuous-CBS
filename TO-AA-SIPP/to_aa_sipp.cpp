@@ -32,7 +32,16 @@ void TO_AA_SIPP::initStates(Agent agent, const Map &Map, const std::list<Constra
         start.interval.end = collision_intervals[start.id][0].first;
     start.interval.id = 0;
     start.interval_id = 0;
-    states.insert(start);
+    if(agent.start_intervals.size() > 0)
+        for(size_t i = 0; i < agent.start_intervals.size(); i++)
+        {
+            start.interval.begin = agent.start_intervals[i].begin;
+            start.interval.end = agent.start_intervals[i].end;
+            start.interval.id = i;
+            states.insert(start);
+        }
+    else
+        states.insert(start);
     auto parent = states.getParentPtr();
     for(int i = 0; i < Map.get_height(); i++)
         for(int j = 0; j < Map.get_width(); j++)
@@ -64,7 +73,7 @@ void TO_AA_SIPP::initStates(Agent agent, const Map &Map, const std::list<Constra
 
             for(size_t k = 0; k < intervals.size(); k++)
             {
-                if(i == agent.start_i && j == agent.start_j && k==0)
+                if(i == agent.start_i && j == agent.start_j && (k==0 || k < agent.start_intervals.size()))
                     continue;
                 n.interval.begin = intervals[k].first;
                 n.interval.end = intervals[k].second;
@@ -84,7 +93,42 @@ void TO_AA_SIPP::initStates(Agent agent, const Map &Map, const std::list<Constra
                 }
             }
         }
-    states.expand(start);
+    if(agent.start_intervals.size() > 0)
+        for(size_t i = 0; i < agent.start_intervals.size(); i++)
+        {
+            start.interval.begin = agent.start_intervals[i].begin;
+            start.interval.end = agent.start_intervals[i].end;
+            start.interval.id = i;
+            states.expand(start);
+        }
+    else
+        states.expand(start);
+}
+
+Path TO_AA_SIPP::add_part(Path result, Path part)
+{
+    part.nodes.erase(part.nodes.begin());
+    for(auto n: part.nodes)
+        result.nodes.push_back(n);
+    return result;
+}
+
+double TO_AA_SIPP::check_endpoint(Node start, Node goal)
+{
+    double cost = sqrt(pow(start.i - goal.i, 2) + pow(start.j - goal.j, 2));
+    if(start.g + cost < goal.interval.first)
+        start.g = goal.interval.first - cost;
+    if(constraints.count({start.id, goal.id}) != 0)
+    {
+        auto it = constraints.find({start.id, goal.id});
+        for(unsigned int i = 0; i < it->second.size(); i++)
+            if(start.g + CN_EPSILON > it->second[i].t1 && start.g < it->second[i].t2)
+                start.g = it->second[i].t2;
+    }
+    if(start.g > start.interval.second || start.g + cost > goal.interval.second)
+        return CN_INFINITY;
+    else
+        return start.g + cost;
 }
 
 void TO_AA_SIPP::add_collision_interval(int id, std::pair<double, double> interval)
@@ -170,14 +214,9 @@ void TO_AA_SIPP::clear()
 
 void TO_AA_SIPP::make_constraints(const std::list<Constraint> &cons)
 {
+    landmarks.clear();
     for(auto con : cons)
     {
-        //std::cout<<con.id1<<" "<<con.id2<<" "<<con.t1<<" "<<con.t2<<" CONSTRAINT\n";
-        if(con.id1 == con.id2) // wait consatraint
-            add_collision_interval(con.id1, std::make_pair(con.t1, con.t2));
-        else
-            add_move_constraint(Move(con));
-        /*
         if(con.positive == false)
         {
             if(con.id1 == con.id2) // wait consatraint
@@ -187,7 +226,7 @@ void TO_AA_SIPP::make_constraints(const std::list<Constraint> &cons)
         }
         else
         {
-            /*bool inserted = false;
+            bool inserted = false;
             for(unsigned int i = 0; i < landmarks.size(); i++)
                 if(landmarks[i].t1 > con.t1)
                 {
@@ -197,11 +236,8 @@ void TO_AA_SIPP::make_constraints(const std::list<Constraint> &cons)
                 }
             if(!inserted)
                 landmarks.push_back(Move(con.t1, con.t2, con.id1, con.id2));
-            continue;
         }
-        */
     }
-    //std::cout<<collision_intervals.size()<<" "<<constraints.size()<<" constraints\n";
 }
 
 double TO_AA_SIPP::findEAT(oNode node)
@@ -223,13 +259,8 @@ double TO_AA_SIPP::findEAT(oNode node)
     return node.g;
 }
 
-Path TO_AA_SIPP::find_path(Agent agent, const Map &map, std::list<Constraint> cons, PHeuristic &h_values_)
+std::vector<Path> TO_AA_SIPP::find_partial_path(Agent agent, const Map &map, std::list<Constraint> cons, double max_f)
 {
-    //std::cout<<"find path for "<<agent.id<<" "<<agent.start_id<<" "<<agent.goal_id<<"\n";
-    h_values = h_values_;
-    h_values.set_goal(agent.goal_i, agent.goal_j);
-    Path resultPath;
-    path = Path();
     clear();
     initStates(agent, map, cons);
     oNode curNode(states.getMin()), newNode;
@@ -240,7 +271,6 @@ Path TO_AA_SIPP::find_path(Agent agent, const Map &map, std::list<Constraint> co
     while(curNode.g < CN_INFINITY)//if curNode.g=CN_INFINITY => there are only unreachable non-consistent states => path cannot be found
     {
         newNode = curNode;
-        //std::cout<<newNode.i<<" "<<newNode.j<<" "<<newNode.g<<" "<<newNode.F<<" "<<newNode.Parent->i<<" "<<newNode.Parent->j<<" curNode\n";
         if(newNode.consistent == 0)
         {
             if(!h_values.get_los(newNode.i, newNode.j, newNode.Parent->i, newNode.Parent->j, map))
@@ -282,17 +312,240 @@ Path TO_AA_SIPP::find_path(Agent agent, const Map &map, std::list<Constraint> co
         path.cost = newNode.g;
         path.agentID = agent.id;
         path.expanded = expanded;
-        //for(auto n:path.nodes)
-        //    std::cout<<n.i<<" "<<n.j<<" "<<n.g<<"\n";
-        //for(auto it = states.states.begin(); it != states.states.end(); it++)
-        //    if(it->consistent == 1)
-        //        h_values_.set_value(it->i, it->j, newNode.g - it->g); //bullshit
-        return path;
+        if(agent.goal_intervals.size() > 0)
+        {
+            std::vector<Path> paths;
+            auto goals = states.get_nodes_by_ij(agent.goal_i, agent.goal_j);
+            for(auto g: goals)
+                if(g.F < CN_INFINITY)
+                {
+                    makePrimaryPath(g);
+                    path.cost = g.F;
+                    paths.push_back(path);
+                }
+            return paths;
+        }
+        else
+            return {path};
     }
     else
     {
-        return Path();
+        return {Path()};
     }
+}
+
+std::vector<Node> TO_AA_SIPP::get_endpoints(int node_id, double node_i, double node_j, double t1, double t2)
+{
+    std::vector<Node> nodes;
+    nodes = {Node(node_id, 0, 0, node_i, node_j, nullptr, t1, t2)};
+    if(collision_intervals[node_id].empty())
+        return nodes;
+    else
+        for(unsigned int k = 0; k < collision_intervals[node_id].size(); k++)
+        {
+            unsigned int i(0);
+            while(i < nodes.size())
+            {
+                Node n = nodes[i];
+                auto c = collision_intervals[node_id][k];
+                bool changed = false;
+                if(c.first - CN_EPSILON < n.interval.first && c.second + CN_EPSILON > n.interval.second)
+                {
+                    nodes.erase(nodes.begin() + i);
+                    changed = true;
+                }
+                else if(c.first - CN_EPSILON < n.interval.first && c.second > n.interval.first)
+                {
+                    nodes[i].interval.first = c.second;
+                    changed = true;
+                }
+                else if(c.first - CN_EPSILON > n.interval.first && c.second + CN_EPSILON < n.interval.second)
+                {
+                    nodes[i].interval.second = c.first;
+                    nodes.insert(nodes.begin() + i + 1, Node(node_id, 0, 0, node_i, node_j, nullptr, c.second, n.interval.second));
+                    changed = true;
+                }
+                else if(c.first < n.interval.second && c.second + CN_EPSILON > n.interval.second)
+                {
+                    nodes[i].interval.second = c.first;
+                    changed = true;
+                }
+                if(changed)
+                {
+                    i = -1;
+                    k = 0;
+                }
+                i++;
+            }
+        }
+    return nodes;
+}
+
+Path TO_AA_SIPP::find_path(Agent agent, const Map &map, std::list<Constraint> cons, PHeuristic &h_values_)
+{
+    //std::cout<<"find path for "<<agent.id<<" "<<agent.start_i<<" "<<agent.start_j<<" "<<agent.goal_i<<" "<<agent.goal_j<<"\n";
+    h_values = h_values_;
+    h_values.set_goal(agent.goal_i, agent.goal_j);
+    Path resultPath;
+    path = Path();
+
+    std::vector<Node> starts, goals;
+    std::vector<Path> parts, results, new_results;
+    Path part, result;
+    int expanded(0);
+    if(!landmarks.empty())
+    {
+        //std::cout<<agent.start_id<<" "<<agent.goal_id<<" "<<landmarks.front().id1<<" "<<landmarks.front().id2<<" "<<landmarks.size()<<" check of landmarks\n";
+        for(unsigned int i = 0; i <= landmarks.size(); i++)
+        {
+            if(i == 0)
+            {
+                starts = {get_endpoints(agent.start_id, agent.start_i, agent.start_j, 0, CN_INFINITY).at(0)};
+                goals = get_endpoints(landmarks[i].id1, map.get_i(landmarks[i].id1), map.get_j(landmarks[i].id1), landmarks[i].t1, landmarks[i].t2);
+            }
+            else
+            {
+                starts.clear();
+                for(auto p:results)
+                    starts.push_back(p.nodes.back());
+                if(i == landmarks.size())
+                    goals = {get_endpoints(agent.goal_id, agent.goal_i, agent.goal_j, 0, CN_INFINITY).back()};
+                else
+                    goals = get_endpoints(landmarks[i].id1, map.get_i(landmarks[i].id1), map.get_j(landmarks[i].id1), landmarks[i].t1, landmarks[i].t2);
+            }
+            if(goals.empty())
+            {
+                //std::cout<<" no goal endpoints\n";
+                return Path();
+            }
+            agent.start_intervals.clear();
+            agent.goal_intervals.clear();
+            for(auto s: starts)
+                agent.start_intervals.push_back(SafeInterval(s.interval.first, s.interval.second));
+            for(auto g: goals)
+                agent.goal_intervals.push_back(SafeInterval(g.interval.first, g.interval.second));
+            parts = find_partial_path(agent, map, cons, goals.back().interval.second);
+            new_results.clear();
+            if(i == 0)
+                for(unsigned int k = 0; k < parts.size(); k++)
+                {
+                    if(parts[k].nodes.empty())
+                        continue;
+                    new_results.push_back(parts[k]);
+                }
+
+            /*for(unsigned int k = 0; k < parts.size(); k++)
+            {
+                std::cout<<k<<" part "<<parts[k].nodes.size()<<" "<<parts[k].nodes[0].interval_id<<"\n";
+                for(auto n:parts[k].nodes)
+                    std::cout<<n.i<<" "<<n.j<<" "<<n.interval_id<<" "<<n.g<<"\n";
+            }
+            for(unsigned int j = 0; j < results.size(); j++)
+            {
+                std::cout<<j<<" result "<<results[j].nodes.size()<<" "<<results[j].nodes.back().interval_id<<"\n";
+                for(auto n:results[j].nodes)
+                    std::cout<<n.i<<" "<<n.j<<" "<<n.interval_id<<" "<<n.g<<"\n";
+            }*/
+
+            for(unsigned int k = 0; k < parts.size(); k++)
+                for(unsigned int j = 0; j < results.size(); j++)
+                {
+                    if(parts[k].nodes.empty())
+                        continue;
+                    if(parts[k].nodes[0].interval_id == results[j].nodes.back().interval_id)
+                    {
+                        new_results.push_back(results[j]);
+                        new_results.back() = add_part(new_results.back(), parts[k]);
+                    }
+                }
+            results = new_results;
+            if(results.empty())
+            {
+                //std::cout<<" empty results\n";
+                return Path();
+            }
+            if(i < landmarks.size())
+            {
+                starts.clear();
+                for(auto p:results)
+                    starts.push_back(p.nodes.back());
+                double offset = sqrt(pow(map.get_i(landmarks[i].id1) - map.get_i(landmarks[i].id2), 2) + pow(map.get_j(landmarks[i].id1) - map.get_j(landmarks[i].id2), 2));
+                goals = get_endpoints(landmarks[i].id2, map.get_i(landmarks[i].id2), map.get_j(landmarks[i].id2), landmarks[i].t1 + offset, landmarks[i].t2 + offset);
+                if(goals.empty())
+                {
+                    //std::cout<<" no goal endpoints 2\n";
+                    return Path();
+                }
+                new_results.clear();
+                for(unsigned int k = 0; k < goals.size(); k++)
+                {
+                    double best_g(CN_INFINITY);
+                    int best_start_id = -1;
+                    for(unsigned int j = 0; j < starts.size(); j++)
+                    {
+                        double g = check_endpoint(starts[j], goals[k]);
+                        if(g < best_g)
+                        {
+                            best_start_id = j;
+                            best_g = g;
+                        }
+                        //std::cout<<check_endpoint(starts[j], goals[k])<<" "<<best_g<<" "<<best_start_id<<" check best g\n";
+                    }
+                    if(best_start_id >= 0)
+                    {
+                        goals[k].g = best_g;
+                        if(collision_intervals[goals[k].id].empty())
+                            goals[k].interval.second = CN_INFINITY;
+                        else
+                        {
+                            for(auto c:collision_intervals[goals[k].id])
+                                if(goals[k].g < c.first)
+                                {
+                                    goals[k].interval.second = c.first;
+                                    break;
+                                }
+                        }
+                        new_results.push_back(results[best_start_id]);
+                        if(goals[k].g - starts[best_start_id].g > offset + CN_EPSILON)
+                        {
+                            new_results.back().nodes.push_back(new_results.back().nodes.back());
+                            new_results.back().nodes.back().g = goals[k].g - offset;
+                        }
+                        new_results.back().nodes.push_back(goals[k]);
+                    }
+                }
+
+                results = new_results;
+                if(results.empty())
+                {
+                    //std::cout<<" empty results 2\n";
+                    return Path();
+                }
+            }
+        }
+        result = results.front();
+    }
+    else
+    {
+        /*starts = {get_endpoints(agent.start_id, agent.start_i, agent.start_j, 0, CN_INFINITY).at(0)};
+        goals = {get_endpoints(agent.goal_id, agent.goal_i, agent.goal_j, 0, CN_INFINITY).back()};
+        agent.start_intervals.clear();
+        agent.goal_intervals.clear();
+        for(auto s: starts)
+            agent.start_intervals.push_back(SafeInterval(s.interval.first, s.interval.second));
+        for(auto g: goals)
+            agent.goal_intervals.push_back(SafeInterval(g.interval.first, g.interval.second));*/
+        parts = find_partial_path(agent, map, cons);
+        if(parts.front().cost < 0)
+            return Path();
+        result = parts.front();
+    }
+    result.nodes.shrink_to_fit();
+    result.cost = result.nodes.back().g;
+    result.agentID = agent.id;
+    result.expanded = expanded;
+    return result;
+
 }
 
 /*std::vector<conflict> AA_SIPP_O::CheckConflicts()
@@ -402,6 +655,7 @@ void TO_AA_SIPP::makePrimaryPath(oNode curNode)
     oNode n(curNode.i, curNode.j, curNode.g, curNode.F);
     n.id = curNode.id;
     nodes.push_front(n);
+    path = Path();
     if(curNode.Parent != nullptr)
     {
         curNode = *curNode.Parent;
@@ -423,7 +677,9 @@ void TO_AA_SIPP::makePrimaryPath(oNode curNode)
     for(auto it = nodes.begin(); it != nodes.end(); it++)
     {
         //std::cout<<it->id<<" "<<it->i<<" "<<it->j<<" "<<it->g<<" path node\n";
-        this->path.nodes.push_back(Node(it->id, it->F, it->g, it->i, it->j));
+        Node n = Node(it->id, it->F, it->g, it->i, it->j, nullptr, it->interval.begin, it->interval.end);
+        n.interval_id = it->interval_id;
+        this->path.nodes.push_back(n);
     }
     for(unsigned int i = 0; i < path.nodes.size(); i++)
     {
