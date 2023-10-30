@@ -372,8 +372,9 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
 {
     config = cfg;
     config.connectdness = -1;
-    config.use_multicons = false;
-    config.use_disjoint_splitting = true;
+    config.use_multicons = true;
+    config.use_disjoint_splitting = false;
+    config.use_dump_multicons = false;
     config.timelimit = 100;
     this->map = &map;
     if(config.connectdness > 0)
@@ -825,6 +826,16 @@ CBS_Node* CBS::expand(CBS_Tree *tree, const Task &task)
             constraintsB.push_back(c);
         //std::cout<<constraintsA.size()<<" "<<constraintsB.size()<<" consA and consB size\n";
     }
+    else if(config.use_dump_multicons)
+    {
+        auto actions = get_all_similar_actions(conflict.move1, conflict.move2);
+        multiconstraintA = get_multiconstraint(conflict.agent1, actions.first, actions.second);
+        for(auto c: multiconstraintA)
+            constraintsA.push_back(c);
+        multiconstraintB = get_multiconstraint(conflict.agent2, actions.second, actions.first);
+        for(auto c: multiconstraintB)
+            constraintsB.push_back(c);
+    }
     else
     {
         //auto actions = find_similar_actions(conflict.move1, conflict.move2);
@@ -875,7 +886,7 @@ CBS_Node* CBS::expand(CBS_Tree *tree, const Task &task)
     std::map<int, sPath> pathsB; pathsB[pathB.agentID] = pathB;
     CBS_Node left(pathsB, parent, constraintB, node.cost + pathB.cost - get_cost(node, conflict.agent2), 0, node.total_cons + 1);
     Constraint positive;
-    if(config.use_multicons)
+    if(config.use_multicons || config.use_dump_multicons)
     {
         right.constraints = multiconstraintA;
         left.constraints = multiconstraintB;
@@ -1101,6 +1112,94 @@ std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> CBS::get_simila
     return result;
 }
 
+std::vector<std::pair<int, int>> CBS::get_cells_in_spiral(int start_i, int start_j)
+{
+    int di(0), dj(0), len(1);
+    std::vector<std::pair<int, int>> cells;
+    while (true) {
+        auto added = cells.size();
+        for (int k = 0; k < len; k++)
+            if(map->cell_on_grid(start_i + k + di, start_j + dj))
+                if(!map->cell_is_obstacle(start_i + k + di, start_j + dj))
+                    cells.emplace_back(start_i + k + di, start_j + dj);
+        di += len;
+        for (int k = 0; k < len; k++)
+            if(map->cell_on_grid(start_i + di, start_j + dj + k))
+                if(!map->cell_is_obstacle(start_i + di, start_j + dj + k))
+                    cells.emplace_back(start_i + di, start_j + dj + k);
+        dj += len;
+        len++;
+        for (int k = 0; k < len; k++)
+            if(map->cell_on_grid(start_i - k + di, start_j + dj))
+                if(!map->cell_is_obstacle(start_i - k + di, start_j + dj))
+                    cells.emplace_back(start_i - k + di, start_j + dj);
+        di -= len;
+        for (int k = 0; k < len; k++)
+            if(map->cell_on_grid(start_i + di, start_j + dj - k))
+                if(!map->cell_is_obstacle(start_i + di, start_j + dj - k))
+                    cells.emplace_back(start_i + di, start_j + dj - k);
+        dj -= len;
+        len++;
+        if(added == cells.size())
+            break;
+    }
+    return cells;
+}
+
+std::pair<std::vector<Move>,std::vector<Move>> CBS::get_all_similar_actions(Move a, Move b)
+{
+    std::vector<Move> moves_a = {a};
+    std::vector<Move> moves_b = {b};
+    auto cells_a = get_cells_in_spiral(map->get_i(a.id2), map->get_j(a.id2));
+    auto cells_b = get_cells_in_spiral(map->get_i(b.id2), map->get_j(b.id2));
+    size_t i(1);
+    Constraint initA = get_constraint(0, a, b);
+    Constraint initB = get_constraint(0, b, a);
+    while(i < cells_a.size() or i < cells_b.size())
+    {
+        if(i < cells_a.size())
+        {
+            int id_a = map->get_id(cells_a[i].first, cells_a[i].second);
+            Move new_move = Move(a.t1, a.t1+dist(a.id1, id_a), a.id1, id_a);
+            bool has_col = true;
+            Constraint con;
+            for(auto c:moves_b)
+                if(!check_conflict(new_move, c))
+                {
+                    has_col = false;
+                    break;
+                }
+            if(has_col)
+            {
+                Constraint newB = get_constraint(0, b, new_move);
+                //if(newB.t2 >= initB.t2)
+                    moves_a.push_back(new_move);
+            }
+        }
+
+        if(i < cells_b.size())
+        {
+            int id_b = map->get_id(cells_b[i].first, cells_b[i].second);
+            Move new_move = Move(b.t1, b.t1+dist(b.id1, id_b), b.id1, id_b);
+            bool has_col = true;
+            for(auto c:moves_a)
+                if(!check_conflict(new_move, c))
+                {
+                    has_col = false;
+                    break;
+                }
+            if(has_col)
+            {
+                Constraint newA = get_constraint(0, a, new_move);
+                //if(newA.t2 >= initA.t2)
+                    moves_b.push_back(new_move);
+            }
+        }
+        i++;
+    }
+    return {moves_a, moves_b};
+}
+
 std::pair<std::vector<Move>,std::vector<Move>> CBS::find_similar_actions(Move a, Move b)
 {
     std::vector<Move> moves_a = {a};
@@ -1160,7 +1259,7 @@ std::pair<std::vector<Move>,std::vector<Move>> CBS::find_similar_actions(Move a,
         }
         i++;
     }
-    i = 1;
+    /*i = 1;
     while(i < cells_a.size() or i < cells_b.size())
     {
         if(i < cells_a.size())
@@ -1203,7 +1302,7 @@ std::pair<std::vector<Move>,std::vector<Move>> CBS::find_similar_actions(Move a,
             }
         }
         i++;
-    }
+    }*/
     //out.close();
     //std::cout<<moves_a.size()<<" "<<moves_b.size()<<" moves found\n";
     return {moves_a, moves_b};

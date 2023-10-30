@@ -12,7 +12,7 @@ int main(int argc, const char *argv[])
 
     std::vector<std::string> collections = {"empty-16-16-random"};//, "room-64-64-8-random",  "den520d-random",  "warehouse-10-20-10-2-2-random"};
     for(auto col:collections)
-    for(int k = 10; k <= 25; k++)
+    for(int k = 1; k <= 25; k++)
         for(int ag=2; ag<100; ag++)
         {
             std::string tname = col + '/' + col + '-' + std::to_string(k) +".xml";

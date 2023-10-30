@@ -21,6 +21,7 @@ public:
     double  agent_size;
     double  timelimit;
     bool    use_multicons;
+    bool    use_dump_multicons;
 };
 
 #endif // CONFIG_H

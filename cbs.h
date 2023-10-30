@@ -53,8 +53,10 @@ public:
     std::vector<std::vector<sNode>> v_paths;
     std::pair<std::vector<Move>, std::vector<Move> > find_similar_actions(Move a, Move b);
     std::pair<std::vector<Move>,std::vector<Move>> find_similar_actions(const Task &task, Conflict conflict, std::list<Constraint> consA, std::list<Constraint> consB);
+    std::pair<std::vector<Move>,std::vector<Move>> get_all_similar_actions(Move a, Move b);
     std::vector<Constraint> get_multiconstraint(int agent, std::vector<Move> moves_a, std::vector<Move> moves_b);
     std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> get_similar_actions(int i1, int j1, int i2, int j2);
+    std::vector<std::pair<int, int>> get_cells_in_spiral(int start_i, int start_j);
 };
 
 #endif // CBS_H
