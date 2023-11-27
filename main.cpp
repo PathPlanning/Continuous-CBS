@@ -8,12 +8,35 @@
 int main(int argc, const char *argv[])
 {
 
-    std::string task_name = "D:/Code/AA-CBS/build-CBS-SIPP-Desktop_Qt_5_15_1_MinGW_32_bit-Release/release/empty/empty-16-16-random-";
+    /*std::string task_name = "empty-16-16-random-24.xml";
+    Config config;
+    Map map = Map(config.agent_size, config.connectdness);
+    std::string map_name = "map.xml";
+    //std::cout<<map_name<<" map\n";
+    map.get_map(map_name.c_str());
+    Task task;
+    //std::cout<<"task\n";
+    task.get_task(task_name.c_str());
+    if(map.is_roadmap())
+        task.make_ij(map);
+    else
+        task.make_ids(map.get_width());
+    TO_AA_SIPP planner;
+    PHeuristic h_values;
+    h_values.count(map, task.get_agent(0));
+    Multiconstraint m;
+    m.agent = 0;
+    m.positive = true;
+    m.constraints.push_back(Constraint(0, 0, 10, map.get_id(2,2), map.get_id(3,3), true));
+    auto path = planner.find_path(task.get_agent(0), map, {m}, h_values);
+    std::cout<<path.cost<<" cost\n";
+    for(auto n:path.nodes)
+        std::cout<<n.i<<" "<<n.j<<" "<<n.g<<" "<<n.interval.first<<" "<<n.interval.second<<" "<<n.parent<<"\n";*/
 
     std::vector<std::string> collections = {"empty-16-16-random"};//, "room-64-64-8-random",  "den520d-random",  "warehouse-10-20-10-2-2-random"};
     for(auto col:collections)
-    for(int k = 1; k <= 25; k++)
-        for(int ag=2; ag<100; ag++)
+    for(int k = 12; k <= 25; k++)
+        for(int ag=10; ag<100; ag++)
         {
             std::string tname = col + '/' + col + '-' + std::to_string(k) +".xml";
             Config config;
@@ -41,11 +64,6 @@ int main(int argc, const char *argv[])
             out.close();
             if(!solution.found)
                 ag = 100;
-            /*XML_logger logger;
-            logger.get_log("map.xml");
-            logger.write_to_log_summary(solution);
-            logger.write_to_log_path(solution, map);
-            logger.save_log();*/
         }
     if(argc > 2)
     {

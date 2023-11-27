@@ -26,17 +26,6 @@ struct SafeInterval
     SafeInterval(const SafeInterval &other) { begin = other.begin; end = other.end; id = other.id;}
 };
 
-struct Agent
-{
-    double start_i, start_j, goal_i, goal_j;
-    int start_id, goal_id;
-    int id;
-    double size;
-    std::vector<SafeInterval> start_intervals, goal_intervals;
-    Agent(int s_id = -1, int g_id = -1, int _id = -1)
-        :start_id(s_id), goal_id(g_id), id(_id) {}
-};
-
 struct gNode
 {
     double i;
@@ -87,6 +76,17 @@ struct oNode
             return this->j < n.j;
         return this->i < n.i;
     }
+};
+
+struct Agent
+{
+    double start_i, start_j, goal_i, goal_j;
+    int start_id, goal_id;
+    int id;
+    double size;
+    std::vector<Node> starts, goals;
+    Agent(int s_id = -1, int g_id = -1, int _id = -1)
+        :start_id(s_id), goal_id(g_id), id(_id) {}
 };
 
 struct Position
@@ -182,6 +182,15 @@ struct Constraint
     }
 };
 
+struct Multiconstraint
+{
+    int agent;
+    std::vector<Constraint> constraints;
+    bool positive;
+    Multiconstraint():agent(-1), positive(false) {}
+    Multiconstraint(const Constraint& c):agent(c.agent), constraints({c}), positive(c.positive) {}
+};
+
 struct Move
 {
     double t1, t2; // t2 is required for wait action
@@ -231,9 +240,8 @@ struct CBS_Node
 {
     std::map<int, sPath> paths;
     CBS_Node* parent;
-    Constraint constraint;
-    std::vector<Constraint> constraints;
-    Constraint positive_constraint;
+    Multiconstraint constraint;
+    Multiconstraint positive_constraint;
     int id;
     std::string id_str;
     double cost;

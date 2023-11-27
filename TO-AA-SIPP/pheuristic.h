@@ -122,6 +122,7 @@ public:
     unsigned int get_size() const { return h_values[0].size(); }
     double get_value(int i, int j)
     {
+        return sqrt(pow(i - goal_i,2) + pow(j - goal_j,2));
         if(h_values[i][j] != CN_INFINITY)
             return h_values[i][j];
         //if(h_values.empty())

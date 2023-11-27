@@ -17,10 +17,10 @@ public:
     Solution find_solution(const Map &map, const Task &task, const Config &cfg);
     Solution find_solution_new(const Map &map, const Task &task, const Config &cfg);
     bool init_root(const Map &map, const Task &task);
-    std::list<Constraint> get_constraints(CBS_Node *node, int agent_id = -1);
+    std::list<Multiconstraint> get_constraints(CBS_Node *node, int agent_id = -1);
     //std::list<Constraint> merge_constraints(std::list<Constraint> constraints);
-    bool validate_constraints(std::list<Constraint> constraints, int agent);
-    bool check_positive_constraints(std::list<Constraint> constraints, Constraint constraint);
+    bool validate_constraints(std::list<Multiconstraint> constraints, int agent);
+    bool check_positive_constraints(std::list<Multiconstraint> constraints, Multiconstraint constraint);
     Conflict check_paths(const sPath &pathA, const sPath &pathB);
     bool check_conflict(Move move1, Move move2);
     double get_hl_heuristic(const std::list<Conflict> &conflicts);
@@ -54,9 +54,11 @@ public:
     std::pair<std::vector<Move>, std::vector<Move> > find_similar_actions(Move a, Move b);
     std::pair<std::vector<Move>,std::vector<Move>> find_similar_actions(const Task &task, Conflict conflict, std::list<Constraint> consA, std::list<Constraint> consB);
     std::pair<std::vector<Move>,std::vector<Move>> get_all_similar_actions(Move a, Move b);
-    std::vector<Constraint> get_multiconstraint(int agent, std::vector<Move> moves_a, std::vector<Move> moves_b);
+    std::vector<std::pair<int, int>> get_similar_endpoints(int x1, int y1, int x2, int y2);
+    Multiconstraint get_multiconstraint(int agent, std::vector<Move> moves_a, std::vector<Move> moves_b);
     std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> get_similar_actions(int i1, int j1, int i2, int j2);
     std::vector<std::pair<int, int>> get_cells_in_spiral(int start_i, int start_j);
+    std::vector<std::pair<int, int>> get_cells(int x1, int y1, int x2, int y2);
 };
 
 #endif // CBS_H
