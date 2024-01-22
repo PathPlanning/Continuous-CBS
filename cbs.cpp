@@ -256,7 +256,6 @@ Conflict CBS::get_conflict(std::list<Conflict> &conflicts)
 Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg, PHeuristic &pheuristic)
 {
     config = cfg;
-    config.connectdness = -1;
     aa_h_values = &pheuristic;
     this->map = &map;
     auto t = std::chrono::high_resolution_clock::now();

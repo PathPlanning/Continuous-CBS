@@ -2,14 +2,11 @@
 using namespace  tinyxml2;
 Config::Config()
 {
-    connectdness = CN_CONNECTEDNESS;
-    use_cardinal = CN_USE_CARDINAL;
     agent_size = CN_AGENT_SIZE;
     timelimit = CN_TIMELIMIT;
     focal_weight = CN_FOCAL_WEIGHT;
     precision = CN_PRECISION;
-    hlh_type = CN_HLH_TYPE;
-    use_disjoint_splitting = false;
+    use_disjoint_splitting = CN_USE_DS;
     mc_type = 0;
 }
 
@@ -38,10 +35,10 @@ void Config::getConfig(const char *fileName)
         return;
     }
 
-    XMLElement *element = algorithm->FirstChildElement("precision");
+    XMLElement *element = algorithm->FirstChildElement(CNS_TAG_PRECISON);
     if (!element)
     {
-        std::cout << "Error! No 'precision' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_PRECISION<<"'."<<std::endl;
+        std::cout << "Error! No '"<<CNS_TAG_PRECISON<<"' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_PRECISION<<"'."<<std::endl;
         precision = CN_PRECISION;
     }
     else
@@ -49,43 +46,19 @@ void Config::getConfig(const char *fileName)
         auto value = element->GetText();
         stream<<value;
         stream>>precision;
-        if(precision > 1.0 || precision <= 0)
+        if(precision >= 1.0 || precision <= 0)
         {
-            std::cout << "Error! Wrong 'precision' value found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_PRECISION<<"'."<<std::endl;
+            std::cout << "Error! Wrong '"<<CNS_TAG_PRECISON<<"' value found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_PRECISION<<"'."<<std::endl;
             precision = CN_PRECISION;
         }
         stream.clear();
         stream.str("");
     }
 
-    element = algorithm->FirstChildElement("use_cardinal");
+    element = algorithm->FirstChildElement(CNS_TAG_USE_DS);
     if (!element)
     {
-        std::cout << "Error! No 'use_cardinal' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_USE_CARDINAL<<"'."<<std::endl;
-        use_cardinal = CN_USE_CARDINAL;
-    }
-    else
-    {
-        std::string value = element->GetText();
-        if(value.compare("true") == 0 || value.compare("1") == 0)
-        {
-            use_cardinal = true;
-        }
-        else if(value.compare("false") == 0 || value.compare("0") == 0)
-        {
-            use_cardinal = false;
-        }
-        else
-        {
-            std::cout << "Error! Wrong 'use_cardinal' value found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_USE_CARDINAL<<"'."<<std::endl;
-            use_cardinal = CN_USE_CARDINAL;
-        }
-    }
-
-    element = algorithm->FirstChildElement("use_disjoint_splitting");
-    if (!element)
-    {
-        std::cout << "Error! No 'use_disjoint_splitting' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_USE_DS<<"'."<<std::endl;
+        std::cout << "Error! No '"<<CNS_TAG_USE_DS<<"' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_USE_DS<<"'."<<std::endl;
         use_disjoint_splitting = CN_USE_DS;
     }
     else
@@ -101,15 +74,15 @@ void Config::getConfig(const char *fileName)
         }
         else
         {
-            std::cout << "Error! Wrong 'use_disjoint_splitting' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_USE_DS<<"'."<<std::endl;
+            std::cout << "Error! Wrong '"<<CNS_TAG_USE_DS<<"' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_USE_DS<<"'."<<std::endl;
             use_disjoint_splitting = CN_USE_DS;
         }
     }
 
-    element = algorithm->FirstChildElement("mc_type");
+    element = algorithm->FirstChildElement(CNS_TAG_MCTYPE);
     if (!element)
     {
-        std::cout << "Error! No 'mc_type' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<0<<"'."<<std::endl;
+        std::cout << "Error! No '"<<CNS_TAG_MCTYPE<<"' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<0<<"'."<<std::endl;
         mc_type = 0;
     }
     else
@@ -120,27 +93,17 @@ void Config::getConfig(const char *fileName)
         stream>>mc_type;
         stream.clear();
         stream.str("");
+        if(0 > mc_type || mc_type > 3)
+        {
+            std::cout << "Error! Wrong '"<<CNS_TAG_MCTYPE<<"' value found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_MC_TYPE<<"'."<<std::endl;
+            mc_type = CN_MC_TYPE;
+        }
     }
 
-    element = algorithm->FirstChildElement("connectedness");
+    element = algorithm->FirstChildElement(CNS_TAG_FOCALW);
     if (!element)
     {
-        std::cout << "Error! No 'connectedness' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_CONNECTEDNESS<<"'."<<std::endl;
-        connectdness = CN_CONNECTEDNESS;
-    }
-    else
-    {
-        auto value = element->GetText();
-        stream<<value;
-        stream>>connectdness;
-        stream.clear();
-        stream.str("");
-    }
-
-    element = algorithm->FirstChildElement("focal_weight");
-    if (!element)
-    {
-        std::cout << "Error! No 'focal_weight' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_FOCAL_WEIGHT<<"'."<<std::endl;
+        std::cout << "Error! No '"<<CNS_TAG_FOCALW<<"' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_FOCAL_WEIGHT<<"'."<<std::endl;
         focal_weight = CN_FOCAL_WEIGHT;
     }
     else
@@ -150,17 +113,17 @@ void Config::getConfig(const char *fileName)
         stream>>focal_weight;
         if(focal_weight < 1.0)
         {
-            std::cout << "Error! Wrong 'focal_weight' value found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_FOCAL_WEIGHT<<"'."<<std::endl;
+            std::cout << "Error! Wrong '"<<CNS_TAG_FOCALW<<"' value found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_FOCAL_WEIGHT<<"'."<<std::endl;
             focal_weight = CN_FOCAL_WEIGHT;
         }
         stream.clear();
         stream.str("");
     }
 
-    element = algorithm->FirstChildElement("agent_size");
+    element = algorithm->FirstChildElement(CNS_TAG_AGENTSIZE);
     if (!element)
     {
-        std::cout << "Error! No 'agent_size' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_AGENT_SIZE<<"'."<<std::endl;
+        std::cout << "Error! No '"<<CNS_TAG_AGENTSIZE<<"' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_AGENT_SIZE<<"'."<<std::endl;
         agent_size = CN_AGENT_SIZE;
     }
     else
@@ -168,39 +131,19 @@ void Config::getConfig(const char *fileName)
         auto value = element->GetText();
         stream<<value;
         stream>>agent_size;
-        if(agent_size < 0 || agent_size > 0.5)
+        if(agent_size <= 0 || agent_size > 0.5)
         {
-            std::cout << "Error! Wrong 'agent_size' value found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_AGENT_SIZE<<"'."<<std::endl;
+            std::cout << "Error! Wrong '"<<CNS_TAG_AGENTSIZE<<"' value found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_AGENT_SIZE<<"'."<<std::endl;
             agent_size = CN_AGENT_SIZE;
         }
         stream.clear();
         stream.str("");
     }
 
-    element = algorithm->FirstChildElement("hlh_type");
+    element = algorithm->FirstChildElement(CNS_TAG_TIMELIMIT);
     if (!element)
     {
-        std::cout << "Error! No 'hlh_type' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_HLH_TYPE<<"'."<<std::endl;
-        hlh_type = CN_HLH_TYPE;
-    }
-    else
-    {
-        auto value = element->GetText();
-        stream<<value;
-        stream>>hlh_type;
-        if(hlh_type < 0 || hlh_type > 2)
-        {
-            std::cout << "Error! Wrong 'hlh_type' value found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_HLH_TYPE<<"'."<<std::endl;
-            hlh_type = CN_HLH_TYPE;
-        }
-        stream.clear();
-        stream.str("");
-    }
-
-    element = algorithm->FirstChildElement("timelimit");
-    if (!element)
-    {
-        std::cout << "Error! No 'timelimit' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_TIMELIMIT<<"'."<<std::endl;
+        std::cout << "Error! No '"<<CNS_TAG_TIMELIMIT<<"' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_TIMELIMIT<<"'."<<std::endl;
         timelimit = CN_TIMELIMIT;
     }
     else

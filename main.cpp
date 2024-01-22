@@ -12,7 +12,7 @@ int main(int argc, const char *argv[])
         config.getConfig(argv[1]);
     else
         config.getConfig("config.xml");
-    Map map = Map(config.agent_size, config.connectdness);
+    Map map = Map(config.agent_size);
     std::string map_name = "map.xml";
     map.get_map(map_name.c_str());
     PHeuristic h_values;
@@ -48,7 +48,7 @@ int main(int argc, const char *argv[])
             config.getConfig(argv[1]);
         else
             config.getConfig("config.xml");
-        Map map = Map(config.agent_size, config.connectdness);
+        Map map = Map(config.agent_size);
         std::string map_name = col+"/map.xml";
         map.get_map(map_name.c_str());
         PHeuristic h_values;
@@ -60,10 +60,7 @@ int main(int argc, const char *argv[])
                 std::string tname = col + '/' + col + "-random-" + std::to_string(k) +".xml";
                 Task task;
                 task.get_task(tname.c_str(), ag);
-                if(map.is_roadmap())
-                    task.make_ij(map);
-                else
-                    task.make_ids(map.get_width());
+                task.make_ids(map.get_width());
                 CBS cbs;
                 Solution solution = cbs.find_solution(map, task, config, h_values);
                 auto found = solution.found?"true":"false";

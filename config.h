@@ -14,10 +14,7 @@ public:
     void getConfig(const char* fileName);
     double  precision;
     double  focal_weight;
-    bool    use_cardinal;
     bool    use_disjoint_splitting;
-    int     hlh_type;
-    int     connectdness;
     double  agent_size;
     double  timelimit;
     int     mc_type;

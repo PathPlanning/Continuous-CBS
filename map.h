@@ -16,20 +16,16 @@ class Map
 private:
     std::vector<std::vector<int>> grid;
     std::vector<gNode> nodes;
-    std::vector<std::vector<Node>> valid_moves;
     int  height, width, size;
-    int  connectedness;
     double agent_size;
-    bool map_is_roadmap;
     bool check_line(int x1, int y1, int x2, int y2);
     bool get_grid(const char* FileName);
     bool get_roadmap(const char* FileName);
 public:
-    Map(double size, int k){ agent_size = size; connectedness = k; }
+    Map(double size){ agent_size = size; }
     ~Map(){}
     int     get_size() const { return size; }
     bool    get_map(const char* FileName);
-    bool    is_roadmap() const {return map_is_roadmap;}
     bool    cell_on_grid(int i, int j) const;
     bool    cell_is_obstacle(int i, int j) const;
     int     get_width() const {return width;}
@@ -40,7 +36,6 @@ public:
     double  get_j (int id) const;
     void    print_map();
     void    printPPM();
-    std::vector<Node> get_valid_moves(int id) const;
 };
 
 #endif // MAP_H

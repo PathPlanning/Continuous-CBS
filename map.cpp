@@ -12,13 +12,12 @@ bool Map::get_map(const char* FileName)
     root = doc.FirstChildElement(CNS_TAG_ROOT);
     if (root)
     {
-        map_is_roadmap = false;
         return get_grid(FileName);
     }
     else
     {
-        map_is_roadmap = true;
-        return get_roadmap(FileName);
+        std::cout << "Only grid-maps are supproted in AA-CCBS!" << std::endl;
+        return false;
     }
 }
 
@@ -29,18 +28,12 @@ int Map::get_id(int i, int j) const
 
 double Map::get_i(int id) const
 {
-    if(!map_is_roadmap)
-        return int(id/width);
-    else
-        return nodes[id].i;
+    return int(id/width);
 }
 
 double Map::get_j(int id) const
 {
-    if(!map_is_roadmap)
-        return int(id%width);
-    else
-        return nodes[id].j;
+    return int(id%width);
 }
 
 bool Map::get_grid(const char* FileName)
@@ -191,107 +184,6 @@ bool Map::get_grid(const char* FileName)
         return false;
     }
     size = width*height;
-    std::vector<Step> moves;
-    valid_moves.resize(height*width);
-    if(connectedness == 2)
-        moves = {{0,1}, {1,0}, {-1,0},  {0,-1}};
-    else if(connectedness == 3)
-        moves = {{0,1}, {1,1}, {1,0},  {1,-1},  {0,-1},  {-1,-1}, {-1,0}, {-1,1}};
-    else if(connectedness == 4)
-        moves = {{0,1}, {1,1}, {1,0},  {1,-1},  {0,-1},  {-1,-1}, {-1,0}, {-1,1},
-                 {1,2}, {2,1}, {2,-1}, {1,-2}, {-1,-2}, {-2,-1}, {-2,1},  {-1,2}};
-    else
-        moves = {{0,1},   {1,1},   {1,0},   {1,-1},  {0,-1},  {-1,-1}, {-1,0}, {-1,1},
-                 {1,2},   {2,1},   {2,-1},  {1,-2},  {-1,-2}, {-2,-1}, {-2,1}, {-1,2},
-                 {1,3},   {2,3},   {3,2},   {3,1},   {3,-1},  {3,-2},  {2,-3}, {1,-3},
-                 {-1,-3}, {-2,-3}, {-3,-2}, {-3,-1}, {-3,1},  {-3,2},  {-2,3}, {-1,3}};
-    for(int i = 0; i < height; i++)
-        for(int j = 0; j < width; j++)
-        {
-            std::vector<bool> valid(moves.size(), true);
-            for(unsigned int k = 0; k < moves.size(); k++)
-                if((i + moves[k].i) < 0 || (i + moves[k].i) >= height || (j + moves[k].j) < 0 || (j + moves[k].j) >= width
-                        || cell_is_obstacle(i + moves[k].i, j + moves[k].j)
-                        || !check_line(i, j, i + moves[k].i, j + moves[k].j))
-                    valid[k] = false;
-            std::vector<Node> v_moves = {};
-            for(unsigned int k = 0; k < valid.size(); k++)
-                if(valid[k])
-                    v_moves.push_back(Node((i + moves[k].i)*width + moves[k].j + j, 0, 0, i + moves[k].i, j + moves[k].j));
-            valid_moves[i*width+j] = v_moves;
-        }
-    return true;
-}
-
-bool Map::get_roadmap(const char *FileName)
-{
-    tinyxml2::XMLDocument doc;
-    if (doc.LoadFile(FileName) != tinyxml2::XMLError::XML_SUCCESS)
-    {
-        std::cout << "Error opening XML file!" << std::endl;
-        return false;
-    }
-    tinyxml2::XMLElement *root = 0, *element = 0, *data;
-    std::string value;
-    std::stringstream stream;
-    root = doc.FirstChildElement("graphml")->FirstChildElement("graph");
-    for(element = root->FirstChildElement("node"); element; element = element->NextSiblingElement("node"))
-    {
-        data = element->FirstChildElement();
-
-        stream.str("");
-        stream.clear();
-        stream << data->GetText();
-        stream >> value;
-        auto it = value.find_first_of(",");
-        stream.str("");
-        stream.clear();
-        stream << value.substr(0, it);
-        double i;
-        stream >> i;
-        stream.str("");
-        stream.clear();
-        value.erase(0, ++it);
-        stream << value;
-        double j;
-        stream >> j;
-        gNode node;
-        node.i = i;
-        node.j = j;
-        nodes.push_back(node);
-    }
-    for(element = root->FirstChildElement("edge"); element; element = element->NextSiblingElement("edge"))
-    {
-        std::string source = std::string(element->Attribute("source"));
-        std::string target = std::string(element->Attribute("target"));
-        source.erase(source.begin(),++source.begin());
-        target.erase(target.begin(),++target.begin());
-        int id1, id2;
-        stream.str("");
-        stream.clear();
-        stream << source;
-        stream >> id1;
-        stream.str("");
-        stream.clear();
-        stream << target;
-        stream >> id2;
-        nodes[id1].neighbors.push_back(id2);
-    }
-    for(gNode cur:nodes)
-    {
-        Node node;
-        std::vector<Node> neighbors;
-        neighbors.clear();
-        for(unsigned int i = 0; i < cur.neighbors.size(); i++)
-        {
-            node.i = nodes[cur.neighbors[i]].i;
-            node.j = nodes[cur.neighbors[i]].j;
-            node.id = cur.neighbors[i];
-            neighbors.push_back(node);
-        }
-        valid_moves.push_back(neighbors);
-    }
-    size = int(nodes.size());
     return true;
 }
 
@@ -328,11 +220,6 @@ bool Map::cell_on_grid(int i, int j) const
 bool Map::cell_is_obstacle(int i, int j) const
 {
     return (grid[i][j] == CN_OBSTL);
-}
-
-std::vector<Node> Map::get_valid_moves(int id) const
-{
-    return valid_moves[id];
 }
 
 bool Map::check_line(int x1, int y1, int x2, int y2)
