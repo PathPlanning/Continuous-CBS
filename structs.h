@@ -252,7 +252,7 @@ struct CBS_Node
     std::list<Conflict> conflicts;
     std::list<Conflict> semicard_conflicts;
     std::list<Conflict> cardinal_conflicts;
-    CBS_Node(std::map<int, sPath> _paths = {}, CBS_Node* _parent = nullptr, Constraint _constraint = Constraint(), double _cost = 0, int _conflicts_num = 0, int total_cons_ = 0)
+    CBS_Node(std::map<int, sPath> _paths = {}, CBS_Node* _parent = nullptr, Multiconstraint _constraint = Multiconstraint(), double _cost = 0, int _conflicts_num = 0, int total_cons_ = 0)
         :paths(_paths), parent(_parent), constraint(_constraint), cost(_cost), conflicts_num(_conflicts_num), total_cons(total_cons_)
     {
         low_level_expanded = 0;
@@ -320,6 +320,10 @@ struct Focal_Elem
             return false;
         else if(this->cost < other.cost)
             return true;
+        else if(this->cost > other.cost)
+            return false;
+        else if(this->id < other.id)
+            return true;
         else
             return false;
     }
@@ -381,6 +385,8 @@ public:
     }
     CBS_Node* get_front()
     {
+        if(container.empty())
+            return nullptr;
         if(focal_weight > 1.0)
         {
             double cost = container.get<0>().begin()->cost;

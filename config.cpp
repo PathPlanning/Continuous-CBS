@@ -9,7 +9,8 @@ Config::Config()
     focal_weight = CN_FOCAL_WEIGHT;
     precision = CN_PRECISION;
     hlh_type = CN_HLH_TYPE;
-    use_multicons = false;
+    use_disjoint_splitting = false;
+    mc_type = 0;
 }
 
 
@@ -105,6 +106,22 @@ void Config::getConfig(const char *fileName)
         }
     }
 
+    element = algorithm->FirstChildElement("mc_type");
+    if (!element)
+    {
+        std::cout << "Error! No 'mc_type' element found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<0<<"'."<<std::endl;
+        mc_type = 0;
+    }
+    else
+    {
+        std::string value = element->GetText();
+
+        stream<<value;
+        stream>>mc_type;
+        stream.clear();
+        stream.str("");
+    }
+
     element = algorithm->FirstChildElement("connectedness");
     if (!element)
     {
@@ -116,11 +133,6 @@ void Config::getConfig(const char *fileName)
         auto value = element->GetText();
         stream<<value;
         stream>>connectdness;
-        if(connectdness > 5 || connectdness < 2)
-        {
-            std::cout << "Error! Wrong 'connectedness' value found inside '"<<CNS_TAG_ALGORITHM<<"' section. It's compared to '"<<CN_CONNECTEDNESS<<"'."<<std::endl;
-            connectdness = CN_CONNECTEDNESS;
-        }
         stream.clear();
         stream.str("");
     }

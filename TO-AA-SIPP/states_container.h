@@ -76,30 +76,11 @@ public:
         addParent(const oNode* parent, double new_g):parent(parent), new_g(new_g){}
         void operator()(oNode &n)
         {
-            bool inserted = false;
-            if(n.parents.empty())
-            {
-                n.parents.push_front({parent, new_g});
-                inserted = true;
-            }
-            else if(n.parents.back().second - new_g < 0)
-            {
-                n.parents.push_back({parent, new_g});
-                inserted = true;
-            }
-            else
-                for(auto it = n.parents.begin(); it != n.parents.end(); it++)
-                    if(it->second - new_g > CN_EPSILON || (fabs(it->second - new_g) < CN_EPSILON && it->first->id > parent->id))
-                    {
-                        n.parents.insert(it,{parent, new_g});
-                        break;
-                    }
-            if(!inserted)
-                n.parents.push_back({parent, new_g});
+            n.parents.push_back({parent, new_g});
         }
         private:
-        const oNode* parent;
-        double new_g;
+            const oNode* parent;
+            double new_g;
     };
 
     struct updateFG
@@ -135,12 +116,18 @@ public:
 
     struct pop_parent
     {
-        pop_parent(){}
+        pop_parent(const oNode* parent):parent(parent){}
         void operator()(oNode& n)
         {
-            if(!n.parents.empty())
-                n.parents.pop_front();
+            for(auto it = n.parents.begin(); it != n.parents.end(); it++)
+                if(it->first->id == parent->id && it->first->interval_id == parent->interval_id)
+                {
+                    n.parents.erase(it);
+                    return;
+                }
         }
+    private:
+        const oNode* parent;
     };
 
     oNode getMin()
@@ -165,32 +152,52 @@ public:
         return &(*(fg.begin()));
     }
 
+    std::vector<const oNode*> getAllParentsPtr()
+    {
+        typedef multi_index::index<by_fg>::type fg_index;
+        fg_index & fg = states.get<by_fg>();
+        std::vector<const oNode*> parents;
+        for(auto it = fg.begin(); it!= fg.end(); it++)
+            parents.push_back(&(*it));
+        return parents;
+    }
+
     void insert(const oNode& curNode)
     {
         states.insert(curNode);
     }
 
-    void update(oNode curNode, bool best, PHeuristic& h)
+    void update(oNode curNode, bool best, PHeuristic* h)
     {
         typedef multi_index::index<by_ij>::type ij_index;
         ij_index & ij = states.get<by_ij>();
         auto it = ij.find(boost::tuple<int, int, int>(curNode.i, curNode.j, curNode.interval_id));
-        ij.modify(it, pop_parent());
+        ij.modify(it, pop_parent(curNode.Parent));
         ij.modify(it, updateFG(curNode.best_g, curNode.best_Parent));
         if(best)
             ij.modify(it, updateBest(curNode.best_g, curNode.best_Parent));
         if(curNode.consistent == 0)
         {
-            curNode.parents = this->findParents(curNode, h);
-            for(auto pit = curNode.parents.begin(); pit!= curNode.parents.end(); pit++)
-                ij.modify(it, addParent(&(*pit->first), pit->second));
+            auto parents = this->findParents(curNode, h);
+            for(auto pit = parents.begin(); pit!= parents.end(); pit++)
+                ij.modify(it, addParent(pit->first, pit->second));
         }
         if(!it->parents.empty())
-            if(it->parents.begin()->second < curNode.best_g)
-                ij.modify(it, updateFG(it->parents.begin()->second, it->parents.begin()->first));
+        {
+            const oNode* new_parent;
+            double min_g = CN_INFINITY;
+            for(auto pit = it->parents.begin(); pit!= it->parents.end(); pit++)
+                if(pit->second < min_g)
+                {
+                    min_g = pit->second;
+                    new_parent = &(*pit->first);
+                }
+            if(min_g < curNode.best_g)
+                ij.modify(it, updateFG(min_g, new_parent));
+        }
     }
 
-    std::list<std::pair<const oNode*, double>> findParents(const oNode& curNode, PHeuristic& h)
+    std::list<std::pair<const oNode*, double>> findParents(const oNode& curNode, PHeuristic* h)
     {
         std::list<std::pair<const oNode*, double>> parents;
         parents.clear();
@@ -198,10 +205,10 @@ public:
         cons_index & cons = states.get<by_cons>();
         auto range = cons.equal_range(1);
         double dist;
-        bool found = false;
+        //bool found = false;
         for(auto it = range.first; it != range.second; it++)
         {
-            if(!found)
+            /*if(!found)
                 if(it->i == curNode.Parent->i && it->j == curNode.Parent->j && it->interval_id == curNode.Parent->interval_id)
                 {
                     //std::cout<<curNode.Parent->i<<" "<<curNode.Parent->j<<" found current parent\n";
@@ -209,7 +216,7 @@ public:
                     it++;
                     if(it == range.second)
                         break;
-                }
+                }*/
             dist = sqrt(pow(it->i - curNode.i,2) + pow(it->j - curNode.j,2));
             if(it->g + dist < curNode.best_g)
             {
@@ -217,14 +224,14 @@ public:
                 {
                     if(it->g + dist <= curNode.interval.end)
                     {
-                        if(!h.get_los(curNode.i, curNode.j, it->i, it->j, *map))
+                        if(!h->get_los(curNode.i, curNode.j, it->i, it->j, *map))
                             continue;
                         parents.push_back({&(*it), it->g + dist});
                     }
                 }
                 else if(it->interval.end + dist >= curNode.interval.begin)
                 {
-                    if(!h.get_los(curNode.i, curNode.j, it->i, it->j, *map))
+                    if(!h->get_los(curNode.i, curNode.j, it->i, it->j, *map))
                         continue;
                     parents.push_front({&(*it), curNode.interval.begin});
                 }
@@ -233,7 +240,7 @@ public:
         return parents;
     }
 
-    void updateNonCons(const oNode& curNode, PHeuristic &h)
+    void updateNonCons(const oNode& curNode, PHeuristic* h)
     {
         typedef multi_index::index<by_ij>::type ij_index;
         ij_index & ij = states.get<by_ij>();
@@ -252,7 +259,7 @@ public:
                 {
                     if(new_g <= it->interval.end)
                     {
-                        if(!h.get_los(parent->i, parent->j, it->i, it->j, *map))
+                        if(!h->get_los(parent->i, parent->j, it->i, it->j, *map))
                             continue;
                         non_cons.modify(it, addParent(parent, new_g));
                         if(it->g - new_g > CN_EPSILON)
@@ -261,14 +268,13 @@ public:
                 }
                 else if(curNode.interval.end + dist >= it->interval.begin)
                 {
-                    if(!h.get_los(parent->i, parent->j, it->i, it->j, *map))
+                    if(!h->get_los(parent->i, parent->j, it->i, it->j, *map))
                         continue;
                     non_cons.modify(it, addParent(parent, it->interval.begin));
                     non_cons.modify(it, updateFG(it->interval.begin, parent));
                 }
             }
         }
-
     }
 
     std::vector<oNode> get_nodes_by_ij(int i, int j)

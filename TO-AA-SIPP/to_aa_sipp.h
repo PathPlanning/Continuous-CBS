@@ -14,7 +14,8 @@ public:
     ~TO_AA_SIPP();
     //std::vector<Path> find_multiple_paths(Agent agent, const Map &map, std::list<Constraint> cons, PHeuristic &h_values_, std::pair<Node, Node> colliding_edge);
     Path find_path(Agent agent, const Map &map, std::list<Multiconstraint> cons, PHeuristic &h_values_);
-
+    Path check_all_paths(Agent agent, const Map &map, std::list<Multiconstraint> cons, PHeuristic &h_values_, int id=-1);
+    int node_id;
 private:
     double check_endpoint(Node start, Node goal);
     Path add_part(Path result, Path part);
@@ -29,6 +30,7 @@ private:
     void clear();
     void add_collision_interval(int id, std::pair<double, double> interval);
     void add_move_constraint(Move move);
+    std::vector<Path> execute_positive_actions(const std::vector<Move> &actions, const Map &map, const Node &start);
     int constraints_type;
     //std::vector<Move> landmarks;
     std::vector<std::vector<Move>> multilandmarks;
@@ -36,10 +38,12 @@ private:
     Path path;
     StatesContainer states;
     LineOfSight los;
-    PHeuristic h_values;
+    PHeuristic* h_values;
     std::map<std::pair<int, int>, std::vector<Move>> constraints;//stores sets of constraints associated with moves
     std::unordered_map<int, std::vector<std::pair<double, double>>> collision_intervals;//stores sets of collision intervals associated with cells
     double findEAT(oNode node);
+    const Map* map;
+    double dist(int id1, int id2);
 };
 
 #endif // TO_AA_SIPP_H

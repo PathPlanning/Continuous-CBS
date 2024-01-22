@@ -10,7 +10,6 @@
 typedef multi_index_container<
         Node,
         indexed_by<
-                    //ordered_non_unique<tag<cost>, BOOST_MULTI_INDEX_MEMBER(Open_Elem, double, cost)>,
                     ordered_non_unique<BOOST_MULTI_INDEX_MEMBER(Node, double, g)>,
                     hashed_unique<BOOST_MULTI_INDEX_MEMBER(Node, int, id)>
         >
@@ -27,7 +26,6 @@ public:
     Heuristic(){}
     void init(unsigned int size, unsigned int agents);
     void count(const Map &map, Agent agent);
-    void count_aa(const Map &map, Agent agent);
     unsigned int get_size() const {return h_values[0].size();}
     double get_value(int id_node, int id_agent) { return h_values[id_node][id_agent]; }
 };

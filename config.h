@@ -20,8 +20,7 @@ public:
     int     connectdness;
     double  agent_size;
     double  timelimit;
-    bool    use_multicons;
-    bool    use_dump_multicons;
+    int     mc_type;
 };
 
 #endif // CONFIG_H

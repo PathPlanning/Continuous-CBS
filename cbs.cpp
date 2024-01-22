@@ -11,10 +11,11 @@ bool CBS::init_root(const Map &map, const Task &task)
         if(config.connectdness > 0)
             path = planner.find_path(agent, map, {}, h_values);
         else
-            path = aa_planner.find_path(agent, map, {}, aa_h_values[agent.id]);
+            path = aa_planner.find_path(agent, map, {}, *aa_h_values);
         if(path.cost < 0)
             return false;
-        std::cout<<path.agentID<<" "<<path.cost<<"\n";
+        //std::cout<<path.agentID<<" "<<path.cost<<" "<<path.nodes.front().id<<" "<<path.nodes.back().id<<"\n";
+        //std::cout<<agent.start_id<<" "<<agent.goal_id<<"\n";
         root.paths[id] = path;
         root.cost += path.cost;
     }
@@ -27,7 +28,7 @@ bool CBS::init_root(const Map &map, const Task &task)
 
     for(auto conflict: conflicts)
     {
-        std::cout<<conflict.agent1<<" "<<conflict.agent2<<"    "<<config.use_cardinal<<" conflict\n";
+        //std::cout<<conflict.agent1<<" "<<conflict.agent2<<"    "<<config.use_cardinal<<" conflict\n";
         if(!config.use_cardinal)
             root.conflicts.push_back(conflict);
         else
@@ -40,8 +41,8 @@ bool CBS::init_root(const Map &map, const Task &task)
             }
             else
             {
-                pathA = aa_planner.find_path(task.get_agent(conflict.agent1), map, {get_constraint(conflict.agent1, conflict.move1, conflict.move2)}, aa_h_values[conflict.agent1]);
-                pathB = aa_planner.find_path(task.get_agent(conflict.agent2), map, {get_constraint(conflict.agent2, conflict.move2, conflict.move1)}, aa_h_values[conflict.agent2]);
+                pathA = aa_planner.check_all_paths(task.get_agent(conflict.agent1), map, {get_constraint(conflict.agent1, conflict.move1, conflict.move2)}, *aa_h_values);
+                pathB = aa_planner.check_all_paths(task.get_agent(conflict.agent2), map, {get_constraint(conflict.agent2, conflict.move2, conflict.move1)}, *aa_h_values);
             }
             //conflict.path1 = pathA;
             //conflict.path2 = pathB;
@@ -110,8 +111,6 @@ double CBS::dist(int id1, int id2)
     return std::sqrt((i1-i2)*(i1-i2)+(j1-j2)*(j1-j2));
 }
 
-
-
 /*std::pair<std::vector<Move>,std::vector<Move>> CBS::find_similar_actions(Move a, Move b)
 {
     std::vector<Move> moves_a = {a};
@@ -162,6 +161,8 @@ double CBS::dist(int id1, int id2)
 Multiconstraint CBS::get_multiconstraint(int agent, std::vector<Move> moves_a, std::vector<Move> moves_b)
 {
     Multiconstraint result;
+    if(moves_a.front().id1 == moves_a.front().id2)
+        return get_wait_constraint(agent, moves_a.front(), moves_b.front());
     for(auto a:moves_a)
     {
         double min_t = CN_INFINITY;
@@ -367,14 +368,11 @@ Conflict CBS::get_conflict(std::list<Conflict> &conflicts)
     return conflict;
 }
 
-Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
+Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg, PHeuristic &pheuristic)
 {
     config = cfg;
     config.connectdness = -1;
-    config.use_multicons = true;
-    config.use_disjoint_splitting = true;
-    config.use_dump_multicons = false;
-    config.timelimit = 100;
+    aa_h_values = &pheuristic;
     this->map = &map;
     if(config.connectdness > 0)
     {
@@ -387,20 +385,16 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
     }
     else //any-angle case
     {
-        aa_h_values.resize(task.get_agents_size());
-        for(int i = 0; i < int(task.get_agents_size()); i++)
-        {
-            Agent agent = task.get_agent(i);
-            aa_h_values[i].init(map.get_width(), map.get_height());
-            aa_h_values[i].count(map, agent);
-        }
+        /*auto t1 = std::chrono::high_resolution_clock::now();
+        aa_h_values.init(map.get_width(), map.get_height());
+        aa_h_values.count(map);
+        auto t2 = std::chrono::high_resolution_clock::now();
+        std::cout<<"time spent for h_values: "<<(t2-t1).count()*1e-9<<"\n";*/
     }
     auto t = std::chrono::high_resolution_clock::now();
     int cardinal_solved = 0, semicardinal_solved = 0;
-    //std::cout<<"ROOT\n";
     if(!this->init_root(map, task))
         return solution;
-    //std::cout<<"ROOT INITIALIZED\n";
     solution.init_time = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t);
     solution.found = true;
     CBS_Node *goal;
@@ -426,36 +420,8 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
         }
         expanded++;
     }
-    //validate_paths(goal, task);
-    //std::cout<<"check all rest nodes\n";
-    //std::cout<<tree->get_open_size()<<"\n";
-    /*while(tree->get_open_size() > 0)
-    {
-        auto parent = tree->get_front();
-        std::cout<<parent->id<<" "<<parent->cost<<" check node\n";
-        validate_paths(parent, task);
-        tree->pop_front();
-    }*/
-    /*for(int i=0; i<task.get_agents_size(); i++)
-    {
-        auto cons = get_constraints(goal, i);
-        for(auto c:cons)
-            std::cout<<c.agent<<" "<<c.id1<<" "<<c.id2<<" "<<c.t1<<" "<<c.t2<<"\n";
-    }*/
+
     solution.paths = get_paths(goal, task.get_ids());
-    /*for(auto path:solution.paths)
-    {
-        for(auto p:path.second.nodes)
-            std::cout<<"{"<<p.id<<","<<p.g<<"},";
-        std::cout<<std::endl;
-    }*/
-    /*auto n = goal;
-    while(n)
-    {
-        std::cout<<n->id<<" ";
-        n = n->parent;
-    }
-    std::cout<<" ids of solution sequence\n";*/
     solution.flowtime = goal->cost;
     solution.low_level_expansions = low_level_searches;
     solution.low_level_expanded = double(low_level_expanded)/std::max(low_level_searches, 1);
@@ -467,10 +433,6 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
     solution.check_time = time;
     solution.cardinal_solved = cardinal_solved;
     solution.semicardinal_solved = semicardinal_solved;
-    std::ofstream out;
-    //out.open("log.txt", std::ios::app);
-    //out<<task.get_agents_size()<<" "<<solution.found<<" "<<solution.time.count()<<" "<<solution.makespan<<" "<<solution.flowtime<<" "<<solution.init_cost<<" "<<solution.initial_conflicts<<" "<<solution.check_time<<" "<<solution.high_level_expanded<<" "<<solution.low_level_expansions<<" "<<solution.low_level_expanded<<" "<<goal->total_cons<<"\n";
-    //out.close();
     return solution;
 }
 
@@ -554,7 +516,6 @@ std::list<Multiconstraint> CBS::get_constraints(CBS_Node *node, int agent_id)
     }
     return constraints;
 }
-
 
 Conflict CBS::check_paths(const sPath &pathA, const sPath &pathB)
 {
@@ -660,38 +621,6 @@ std::map<int, sPath> CBS::get_paths(CBS_Node *node, std::vector<int> ids)
     return paths;
 }
 
-void CBS::add_agent(CBS_Tree *tree, Task &task, int agent_id, double cost)
-{
-    sPath path = tree->tree.begin()->paths.at(agent_id);
-    std::cout<<agent_id<<" "<<tree->tree.size()<<" "<<tree->get_size()<<" add agent\n";
-    CT_container new_open;
-    for(auto it:tree->tree)
-    {
-        std::cout<<it.id<<" "<<it.cost<<" "<<it.paths.size()<<" "<<it.conflicts.size()<<" "<<it.cardinal_conflicts.size()<<" "<<it.semicard_conflicts.size()<<"\n";
-        if(it.cardinal_conflicts.size() > 0)
-            std::cout<<it.cardinal_conflicts.front().agent1<<" "<<it.cardinal_conflicts.front().agent2<<" "<<it.cardinal_conflicts.front().overcost<<" CARDINAL SHIT?\n";
-    }
-    for(auto it = tree->container.get<0>().begin(); it != tree->container.get<0>().end(); it++)
-    {
-        //std::cout<<" modify element of open\n";
-        auto node = it->tree_pointer;
-        std::cout<<"get paths "<<node->cost<<" "<<node->id<<" "<<node->paths.size()<<"\n";
-        auto paths = get_paths(node, task.get_ids());
-        std::cout<<"find new conflicts\n";
-        find_new_conflicts(*map, task, *node, paths, path, node->conflicts);
-        std::cout<<node->conflicts.size()<<" "<<node->cardinal_conflicts.size()<<" "<<node->semicard_conflicts.size()<<" "<<config.use_cardinal<<" conflicts found\n";
-        //for(auto c: node->conflicts)
-        //    std::cout<<c.agent1<<" vs "<<c.agent2<<"\n";
-        node->conflicts_num = node->conflicts.size();
-        node->h = fmax(0, cost - it->tree_pointer->cost);
-        node->cost = fmax(cost, node->cost) + path.cost;
-        std::cout<<node->id<<" "<<node->cost<<" "<<cost<<" "<<path.cost<<" "<<node->h<<" costs\n";
-        new_open.insert(Open_Elem(node, node->id, node->cost, node->total_cons, node->conflicts_num));
-    }
-    tree->container.clear();
-    tree->container = new_open;
-}
-
 bool CBS::validate_cons(CBS_Node* node, const Task &task)
 {
     std::cout<<"Check node "<<node->id<<" with cost "<<node->cost<<"\n";
@@ -739,62 +668,26 @@ bool CBS::validate_paths(CBS_Node *node, const Task &task)
 CBS_Node* CBS::expand(CBS_Tree *tree, const Task &task)
 {
     auto parent = tree->get_front();
-    //std::cout<<parent<<" parent\n";
+    if(parent == nullptr)
+        return parent;
     auto node = *parent;
     node.cost -= node.h;
-    //std::cout<<all_nodes.size()<<" "<<node.id<<" "<<node.cost<<" "<<node.conflicts_num<<" "<<node.conflicts.size()<<" "<<node.cardinal_conflicts.size()<<" "<<node.semicard_conflicts.size()<<" "<<node.total_cons<<" NODE\n";
     parent->conflicts.clear();
     parent->cardinal_conflicts.clear();
     parent->semicard_conflicts.clear();
     auto paths = get_paths(&node, task.get_ids());
-    //for(auto p:paths)
-    //    std::cout<<p.second.cost<<" ";
-    //std::cout<<'\n';
-    /*if(validate_paths(parent, task) && paths[3].cost > 10.05)
-    {
-        auto cons = get_constraints(&node, 3);
-        for(auto c: cons)
-            std::cout<<c.t1<<","<<c.t2<<","<<c.id1<<","<<c.id2<<"\n";
-    }*/
     auto time_now = std::chrono::high_resolution_clock::now();
     auto conflicts = node.conflicts;
     auto cardinal_conflicts = node.cardinal_conflicts;
     auto semicard_conflicts = node.semicard_conflicts;
 
-    //expanded++;
-    //std::cout<<"conflict between "<<conflict.move1.id1<<" "<<conflict.move2.id2<<" and "<<conflict.move2.id1<<" "<<conflict.move2.id2<<"\n";
-    if(conflicts.empty() || node.id < 100)
-    {
-        std::ofstream out;
-        //out.open("log_multi.xml", std::ios::app);
-        //out<<"\t\t<node id=\""<<node.id<<"\" cost=\""<<node.cost<<"\" constraints_num=\""<<node.total_cons<<"\">\n";
-        for(auto p:paths)
-        {
-            out<<"\t\t\t<path id=\""<<p.first<<"\">\n";
-            for(int i=0; i<p.second.nodes.size()-1; i++)
-            {
-                auto n1 = p.second.nodes[i];
-                auto n2 = p.second.nodes[i+1];
-                //out<<"\t\t\t\t<section i1=\""<<map->get_i(n1.id)<<"\" j1=\""<<map->get_j(n1.id)<<"\" i2=\""<<map->get_i(n2.id)<<"\" j2=\""<<map->get_j(n2.id)<<"\" duration=\""<<n2.g-n1.g<<"\"/>\n";
-            }
-            //out<<"\t\t\t</path>\n";
-        }
-        for(int i=0; i<task.get_agents_size(); i++)
-        {
-            auto cons = get_constraints(&node, i);
-            //for(auto c: cons)
-            //    out<<"\t\t\t<constraint i1=\""<<map->get_i(c.id1)<<"\" j1=\""<<map->get_j(c.id1)<<"\" i2=\""<<map->get_i(c.id2)<<"\" j2=\""<<map->get_j(c.id2)<<"\" t1=\""<<c.t1<<"\" c.t2=\""<<c.t2<<"\" positive=\""<<c.positive<<"\" agent_id=\""<<i<<"\"/>\n";
-        }
-        //out<<"\t\t</node>\n";
-        //out.close();
-    }
     Conflict conflict;
     if(conflicts.empty() && semicard_conflicts.empty() && cardinal_conflicts.empty())
     {
-        std::cout<<node.id<<' '<<node.cost<<" "<<node.conflicts_num<<" "<<node.total_cons<<" GOAL\n";
+        /*std::cout<<node.id<<' '<<node.cost<<" "<<node.conflicts_num<<" "<<node.total_cons<<" GOAL\n";
         for(auto p:paths)
             std::cout<<p.second.agentID<<" "<<p.second.cost<<"\n";
-        std::cout<<"solution without conflicts found\n";
+        std::cout<<"solution without conflicts found\n";*/
         return parent; //i.e. no conflicts => solution found
     }
     tree->pop_front();
@@ -810,89 +703,53 @@ CBS_Node* CBS::expand(CBS_Tree *tree, const Task &task)
     }
     else
         conflict = get_conflict(conflicts);
-    std::cout<<"conflict "<<conflict.move1.id1 <<" "<<conflict.move1.t1<<" "<<conflict.move1.id2<<" "<<conflict.move1.t2<<" vs "<<conflict.move2.id1 <<" "<<conflict.move2.t1<<" "<<conflict.move2.id2<<" "<<conflict.move2.t2<<"\n";
+    //std::cout<<"conflict "<<conflict.move1.id1 <<" "<<conflict.move1.t1<<" "<<conflict.move1.id2<<" "<<conflict.move1.t2<<" vs "<<conflict.move2.id1 <<" "<<conflict.move2.t1<<" "<<conflict.move2.id2<<" "<<conflict.move2.t2<<"\n";
     auto constraintsA = get_constraints(&node, conflict.agent1);
-    Constraint constraintA(get_constraint(conflict.agent1, conflict.move1, conflict.move2));
-    Multiconstraint multiconstraintA, multiconstraintB;
     auto constraintsB = get_constraints(&node, conflict.agent2);
-    Constraint constraintB(get_constraint(conflict.agent2, conflict.move2, conflict.move1));
-    if(config.use_multicons)
+    Multiconstraint multiconstraintA, multiconstraintB;
+    if(config.mc_type == 2 || config.mc_type == 3)
     {
         auto actions = find_similar_actions(conflict.move1, conflict.move2);
-        //auto actions = find_similar_actions(task, conflict, constraintsA, constraintsB);
-        //for(auto s:actions.first)
-        //    std::cout<<s.id1<<" "<<s.id2<<" "<<s.t1<<" "<<s.t2<<" similar action\n";
         multiconstraintA = get_multiconstraint(conflict.agent1, actions.first, actions.second);
-        constraintsA.push_back(multiconstraintA);
         multiconstraintB = get_multiconstraint(conflict.agent2, actions.second, actions.first);
-        constraintsB.push_back(multiconstraintB);
-        //std::cout<<constraintsA.size()<<" "<<constraintsB.size()<<" consA and consB size\n";
     }
-    else if(config.use_dump_multicons)
+    else if(config.mc_type == 1)
     {
         auto actions = get_all_similar_actions(conflict.move1, conflict.move2);
         multiconstraintA = get_multiconstraint(conflict.agent1, actions.first, actions.second);
-        constraintsA.push_back(multiconstraintA);
         multiconstraintB = get_multiconstraint(conflict.agent2, actions.second, actions.first);
-        constraintsB.push_back(multiconstraintB);
     }
     else
     {
-        //auto actions = find_similar_actions(conflict.move1, conflict.move2);
-        //multiconstraintA = get_multiconstraint(conflict.agent1, actions.first, actions.second);
-        //for(Constraint c: multiconstraintA)
-        //    std::cout<<c.agent<<" "<<c.id1<<" "<<c.id2<<" "<<c.t1<<" "<<c.t2<<" multicons\n";
-        constraintsA.push_back(constraintA);
-        constraintsB.push_back(constraintB);
+        multiconstraintA = get_constraint(conflict.agent1, conflict.move1, conflict.move2);
+        multiconstraintB = get_constraint(conflict.agent2, conflict.move2, conflict.move1);
     }
-    //for(auto id:task.get_ids())
-    //{
-    //    auto constraints = get_constraints(&node, id);
-        //for(auto c: constraints)
-        //    std::cout<<c.agent<<" "<<c.id1<<" "<<c.t1<<" "<<c.id2<<" "<<c.t2<<" old c\n";
-    //}
-    //std::cout<<conflict.agent1<<' '<<constraintsA.size()<<" constraints "<<constraintA.id1<<" "<<constraintA.id2<<" constraint A\n";
+    constraintsA.push_back(multiconstraintA);
+    constraintsB.push_back(multiconstraintB);
+
     sPath pathA;
     /*if(config.connectdness > 0)
         pathA = planner.find_path(task.get_agent(conflict.agent1), *map, constraintsA, h_values);
     else*/
-        pathA = aa_planner.find_path(task.get_agent(conflict.agent1), *map, constraintsA, aa_h_values[conflict.agent1]);
+        pathA = aa_planner.check_all_paths(task.get_agent(conflict.agent1), *map, constraintsA, *aa_h_values, parent->id);
     low_level_searches++;
     low_level_expanded += pathA.expanded;
-    //std::cout<<constraintA.agent<<" "<<constraintA.id1<<" "<<constraintA.t1<<" "<<constraintA.id2<<" "<<constraintA.t2<<" new c\n";
-    //std::cout<<tree->get_size()<<" "<<pathA.agentID<<" "<<pathA.expanded<<" "<<pathA.cost<<" expanded\n";
-    //std::cout<<conflict.agent2<<' '<<constraintsB.size()<<" constraints "<<constraintB.id1<<" "<<constraintB.id2<<" constraint B\n";
     sPath pathB;
     /*if(config.connectdness > 0)
         pathB = planner.find_path(task.get_agent(conflict.agent2), *map, constraintsB, h_values);
     else*/
-        pathB = aa_planner.find_path(task.get_agent(conflict.agent2), *map, constraintsB, aa_h_values[conflict.agent2]);
-    /*for(auto p:pathB.nodes)
-        std::cout<<p.id<<" "<<p.g<<"->";
-    std::cout<<"\n";
-    for(auto p:pathA.nodes)
-        std::cout<<p.id<<" "<<p.g<<"->";
-    std::cout<<"\n";*/
-    //for(auto c: constraintsB)
-    //    std::cout<<c.id1<<" "<<c.t1<<"  "<<c.id2<<" "<<c.t2<<"\n";
-    //std::cout<<"\n";
+        pathB = aa_planner.check_all_paths(task.get_agent(conflict.agent2), *map, constraintsB, *aa_h_values);
+
     low_level_searches++;
     low_level_expanded += pathB.expanded;
     //std::cout<<constraintB.agent<<" "<<constraintB.id1<<" "<<constraintB.t1<<" "<<constraintB.id2<<" "<<constraintB.t2<<" new c\n";
     //std::cout<<tree->get_size()+1<<" "<<pathB.agentID<<" "<<pathB.expanded<<" "<<pathB.cost<<" expanded\n";
 
     std::map<int, sPath> pathsA; pathsA[pathA.agentID] = pathA;
-    CBS_Node right(pathsA, parent, constraintA, node.cost + pathA.cost - get_cost(node, conflict.agent1), 0, node.total_cons + 1);
+    CBS_Node right(pathsA, parent, multiconstraintA, node.cost + pathA.cost - get_cost(node, conflict.agent1), 0, node.total_cons + multiconstraintA.constraints.size());
     std::map<int, sPath> pathsB; pathsB[pathB.agentID] = pathB;
-    CBS_Node left(pathsB, parent, constraintB, node.cost + pathB.cost - get_cost(node, conflict.agent2), 0, node.total_cons + 1);
+    CBS_Node left(pathsB, parent, multiconstraintB, node.cost + pathB.cost - get_cost(node, conflict.agent2), 0, node.total_cons + multiconstraintB.constraints.size());
     Multiconstraint positive;
-    if(config.use_multicons || config.use_dump_multicons)
-    {
-        right.constraint = multiconstraintA;
-        left.constraint = multiconstraintB;
-        right.total_cons += multiconstraintA.constraints.size() - 1;
-        left.total_cons += multiconstraintB.constraints.size() - 1;
-    }
     bool inserted = false;
     bool left_ok = true, right_ok = true;
     if(config.use_disjoint_splitting)
@@ -911,7 +768,7 @@ CBS_Node* CBS::expand(CBS_Tree *tree, const Task &task)
             //if(check_positive_constraints(constraintsA, positive))
             {
                 left.positive_constraint = positive;
-                left.total_cons++;
+                left.total_cons += positive.constraints.size();
                 constraintsB.push_back(left.positive_constraint);
                 inserted = true;
                 //std::cout<<"added positive to "<<positive.agent<<"\n\n";
@@ -926,7 +783,7 @@ CBS_Node* CBS::expand(CBS_Tree *tree, const Task &task)
             //if(check_positive_constraints(constraintsB, positive))
             {
                 right.positive_constraint = positive;
-                right.total_cons++;
+                right.total_cons += positive.constraints.size();
                 constraintsA.push_back(right.positive_constraint);
                 inserted = true;
             }
@@ -941,7 +798,7 @@ CBS_Node* CBS::expand(CBS_Tree *tree, const Task &task)
             {
                 inserted = true;
                 left.positive_constraint = positive;
-                left.total_cons++;
+                left.total_cons += positive.constraints.size();
                 constraintsB.push_back(left.positive_constraint);
             }
             //else
@@ -952,7 +809,8 @@ CBS_Node* CBS::expand(CBS_Tree *tree, const Task &task)
     left.id_str = node.id_str + "1";
     right.id = tree->get_size();
     left.id = tree->get_size()+1;
-    if(right_ok && pathA.cost > 0 && validate_constraints(constraintsA, pathA.agentID))
+
+    if(right_ok && pathA.cost > 0)// && validate_constraints(constraintsA, pathA.agentID))
     {
         find_new_conflicts(*map, task, right, paths, pathA, conflicts);
         if(right.cost > 0)
@@ -962,11 +820,10 @@ CBS_Node* CBS::expand(CBS_Tree *tree, const Task &task)
             right.id = all_nodes.size();
             all_nodes.push_back(right);
             //validate_cons(&right, task);
-            //std::cout<<right.paths.size()<<" "<<right.id_str<<" right paths size\n";
             tree->add_node(&all_nodes.back());
         }
     }
-    if(left_ok && pathB.cost > 0 && validate_constraints(constraintsB, pathB.agentID))
+    if(left_ok && pathB.cost > 0)// && validate_constraints(constraintsB, pathB.agentID))
     {
         find_new_conflicts(*map, task, left, paths, pathB, conflicts);
         if(left.cost > 0)
@@ -976,143 +833,10 @@ CBS_Node* CBS::expand(CBS_Tree *tree, const Task &task)
             left.id = all_nodes.size();
             all_nodes.push_back(left);
             //validate_cons(&left, task);
-            //std::cout<<left.paths.size()<<" "<<left.id_str<<" left paths size\n";
             tree->add_node(&all_nodes.back());
         }
     }
     return nullptr;
-}
-
-
-Solution CBS::find_solution_new(const Map &map, const Task &task, const Config &cfg)
-{
-    config = cfg;
-    config.use_cardinal = false;
-    this->map = &map;
-    h_values.init(map.get_size(), task.get_agents_size());
-    //h_values.resize(task.get_agents_size());
-    for(int i = 0; i < int(task.get_agents_size()); i++)
-    {
-        Agent agent = task.get_agent(i);
-        h_values.count(map, agent);
-    }
-    auto t = std::chrono::high_resolution_clock::now();
-    int cardinal_solved = 0, semicardinal_solved = 0;
-    std::cout<<"ROOT\n";
-    if(!this->init_root(map, task))
-        return solution;
-    std::cout<<"ROOT INITIALIZED\n";
-    solution.init_time = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t);
-    solution.found = true;
-    CBS_Node node = *tree->get_front();
-    CBS_Node *goal = nullptr;
-    CBS_Tree *best_tree = nullptr;
-    Conflict best_conflict;
-    Solution best_solution;
-    std::list<Conflict> conflicts;
-    for(auto c: node.conflicts)
-    {
-        Task new_task;
-        new_task.add_agent(task.get_agent(c.agent1));
-        new_task.add_agent(task.get_agent(c.agent2));
-        CBS cbs;
-        cbs.h_values = h_values;
-        auto solution = cbs.find_solution(map, new_task, config);
-        //std::cout<<c.agent1<<" "<<c.agent2<<" "<<solution.init_cost<<" "<<solution.flowtime<<"\n";
-        if(best_tree == nullptr || cbs.tree->get_size() > best_tree->get_size())
-        {
-            best_tree = cbs.tree;
-            best_conflict = c;
-            best_solution = solution;
-        }
-        c.overcost = solution.flowtime;
-        //std::cout<<c.agent1<<" "<<c.agent2<<" "<<c.overcost<<" count H\n";
-        conflicts.push_back(c);
-    }
-
-    std::map<int, double> base_costs;
-    for(auto p: node.paths)
-        base_costs[p.first] = p.second.cost;
-    //std::cout<<"check "<<conflicts.size()<<" "<<base_costs.size()<<"\n";
-    //std::cout<<get_h(conflicts, base_costs)<<" "<<best_solution.flowtime<<" summary minimal cost\n";
-    //std::cout<<"best tree found\n";
-    Task new_task;
-    new_task.add_agent(task.get_agent(best_conflict.agent1));
-    new_task.add_agent(task.get_agent(best_conflict.agent2));
-    for(auto id: task.get_ids())
-    {
-        auto ids = new_task.get_ids();
-        if(std::find(ids.begin(), ids.end(), id) == ids.end())
-        {
-            std::cout<<"conflict found\n";
-            best_tree->tree.begin()->paths[id] = tree->tree.begin()->paths.at(id); //костыль
-            std::cout<<id<<" add new agent\n";
-            new_task.add_agent(task.get_agent(id));
-            std::cout<<"modify tree\n";
-            add_agent(best_tree, new_task, id, best_tree->container.get<0>().begin()->cost);
-        }
-        while (true)
-        {
-            goal = expand(best_tree, new_task);
-            if(goal != nullptr)
-                break;
-            auto time_spent = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t);
-            if(time_spent.count() > config.timelimit)
-            {
-                solution.found = false;
-                break;
-            }
-        }
-    }
-
-    if(goal != nullptr)
-    {
-
-        std::cout<<goal->id<<" goal\n";
-        auto paths = get_paths(goal, new_task.get_ids());
-        std::cout<<paths.size()<<" paths resolved\n";
-        auto all_paths = get_paths(&node, task.get_ids());
-        for(auto p:paths)
-        {
-            std::cout<<p.second.agentID<<" "<<p.second.cost<<"\n";
-            all_paths[p.first] = p.second;
-        }
-        solution.paths = all_paths;
-        double cost = 0;
-        for(auto p:all_paths)
-            cost += p.second.cost;
-        solution.flowtime = cost;
-    }
-    solution.low_level_expansions = low_level_searches;
-    solution.low_level_expanded = double(low_level_expanded)/std::max(low_level_searches, 1);
-    solution.high_level_expanded = best_tree->get_size() - best_tree->get_open_size();
-    solution.high_level_generated = int(tree->get_size());
-    for(auto path:solution.paths)
-        solution.makespan = (solution.makespan > path.second.cost) ? solution.makespan : path.second.cost;
-    solution.time = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t);
-    solution.check_time = 0;
-    solution.cardinal_solved = cardinal_solved;
-    solution.semicardinal_solved = semicardinal_solved;
-
-    return solution;
-}
-
-std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> CBS::get_similar_actions(int i1, int j1, int i2, int j2)
-{
-    std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> result;
-    int sign_i = i1 == i2 ? 0 : i1 < i2 ? 1: -1;
-    int sign_j = j1 == j2 ? 0 : j1 < j2 ? 1: -1;
-    LineOfSight los;
-    auto cells_a = los.getCellsCrossedByLine(i1, j1, i2, j2, *map);
-    for(auto a: cells_a)
-        for(auto b: cells_a)
-        {
-            int sign_first = a.first == b.first ? 0 : a.first < b.first ? 1: -1;
-            int sign_second = a.second == b.second ? 0 : a.second < b.second ? 1: -1;
-            if(sign_first == sign_i and sign_j == sign_second)
-                result.emplace_back(a, b);
-        }
-    return result;
 }
 
 std::vector<std::pair<int, int>> CBS::get_cells_in_spiral(int start_i, int start_j)
@@ -1292,7 +1016,6 @@ std::vector<std::pair<int, int>> CBS::get_cells(int x1, int y1, int x2, int y2)
     return lineCells;
 }
 
-
 std::pair<std::vector<Move>,std::vector<Move>> CBS::find_similar_actions(Move a, Move b)
 {
     std::vector<Move> moves_a = {a};
@@ -1301,9 +1024,7 @@ std::pair<std::vector<Move>,std::vector<Move>> CBS::find_similar_actions(Move a,
     auto cells_a = los.getCellsCrossedByLine(map->get_i(a.id1), map->get_j(a.id1), map->get_i(a.id2), map->get_j(a.id2), *map);
     auto cells_b = los.getCellsCrossedByLine(map->get_i(b.id1), map->get_j(b.id1), map->get_i(b.id2), map->get_j(b.id2), *map);
 
-    //auto cells_a = get_cells(map->get_i(a.id1), map->get_j(a.id1), map->get_i(a.id2), map->get_j(a.id2));
-    //auto cells_b = get_cells(map->get_i(b.id1), map->get_j(b.id1), map->get_i(b.id2), map->get_j(b.id2));
-    int i(1);
+    size_t i(1);
     Constraint initA = get_constraint(0, a, b);
     Constraint initB = get_constraint(0, b, a);
     while(i < cells_a.size() or i < cells_b.size())
@@ -1314,7 +1035,7 @@ std::pair<std::vector<Move>,std::vector<Move>> CBS::find_similar_actions(Move a,
             Move new_move = Move(a.t1, a.t1+dist(a.id1, id_a), a.id1, id_a);
             bool has_col = true;
             Constraint con;
-            for(auto c:moves_b)
+            for(auto &c:moves_b)
                 if(!check_conflict(new_move, c))
                 {
                     has_col = false;
@@ -1324,7 +1045,8 @@ std::pair<std::vector<Move>,std::vector<Move>> CBS::find_similar_actions(Move a,
             {
                 Constraint newB = get_constraint(0, b, new_move);
                 if(newB.t2 >= initB.t2)
-                    moves_a.push_back(new_move);
+                    if(new_move.id2 != a.id2)
+                        moves_a.push_back(new_move);
             }
         }
 
@@ -1333,7 +1055,7 @@ std::pair<std::vector<Move>,std::vector<Move>> CBS::find_similar_actions(Move a,
             int id_b = map->get_id(cells_b[cells_b.size() - i].first, cells_b[cells_b.size() - i].second);
             Move new_move = Move(b.t1, b.t1+dist(b.id1, id_b), b.id1, id_b);
             bool has_col = true;
-            for(auto c:moves_a)
+            for(auto &c:moves_a)
                 if(!check_conflict(new_move, c))
                 {
                     has_col = false;
@@ -1343,115 +1065,56 @@ std::pair<std::vector<Move>,std::vector<Move>> CBS::find_similar_actions(Move a,
             {
                 Constraint newA = get_constraint(0, a, new_move);
                 if(newA.t2 >= initA.t2)
-                    moves_b.push_back(new_move);
+                    if(new_move.id2 != b.id2)
+                        moves_b.push_back(new_move);
             }
         }
         i++;
     }
-    /*i = 1;
-    while(i < cells_a.size() or i < cells_b.size())
+    if(config.mc_type == 3)
     {
-        if(i < cells_a.size())
+        i = 1;
+        while(i < cells_a.size() or i < cells_b.size())
         {
-            int id_a = map->get_id(cells_a[cells_a.size() - i].first, cells_a[cells_a.size() - i].second);
-            Move new_move = Move(a.t1 + dist(a.id1, id_a), a.t1+dist(a.id1, id_a)+dist(a.id2, id_a), id_a, a.id2);
-            bool has_col = true;
-            Constraint con;
-            for(auto c:moves_b)
-                if(!check_conflict(new_move, c))
-                {
-                    has_col = false;
-                    break;
-                }
-            if(has_col)
+            if(i < cells_a.size())
             {
-                Constraint newB = get_constraint(0, b, new_move);
-                if(newB.t2 >= initB.t2)
-                    moves_a.push_back(new_move);
-                //out<<"\t\t\t<constraint i1=\""<<map->get_i(a.id1)<<"\" j1=\""<<map->get_j(a.id1)<<"\" i2=\""<<map->get_i(id_a)<<"\" j2=\""<<map->get_j(id_a)<<"\" t1=\""<<a.t1<<"\" c.t2=\""<<a.t2<<"\" positive=\""<<false<<"\" agent_id=\""<<0<<"\"/>\n";
-            }
-        }
-        if(i < cells_b.size())
-        {
-            int id_b = map->get_id(cells_b[cells_b.size() - i].first, cells_b[cells_b.size() - i].second);
-            Move new_move = Move(b.t1+dist(b.id1, id_b), b.t1+dist(b.id1, id_b)+dist(b.id2, id_b), id_b, b.id2);
-            bool has_col = true;
-            for(auto c:moves_a)
-                if(!check_conflict(new_move, c))
+                int id_a = map->get_id(cells_a[cells_a.size() - i].first, cells_a[cells_a.size() - i].second);
+                Move new_move = Move(a.t1 + dist(a.id1, id_a), a.t1+dist(a.id1, id_a)+dist(a.id2, id_a), id_a, a.id2);
+                bool has_col = true;
+                Constraint con;
+                for(auto &c:moves_b)
+                    if(!check_conflict(new_move, c))
+                    {
+                        has_col = false;
+                        break;
+                    }
+                if(has_col)
                 {
-                    has_col = false;
-                    break;
+                    Constraint newB = get_constraint(0, b, new_move);
+                    if(newB.t2 >= initB.t2)
+                        moves_a.push_back(new_move);
                 }
-            if(has_col)
-            {
-                Constraint newA = get_constraint(0, a, new_move);
-                if(newA.t2 >= initA.t2)
-                    moves_b.push_back(new_move);
-                //out<<"\t\t\t<constraint i1=\""<<map->get_i(b.id1)<<"\" j1=\""<<map->get_j(b.id1)<<"\" i2=\""<<map->get_i(id_b)<<"\" j2=\""<<map->get_j(id_b)<<"\" t1=\""<<a.t1<<"\" c.t2=\""<<a.t2<<"\" positive=\""<<false<<"\" agent_id=\""<<0<<"\"/>\n";
             }
+            if(i < cells_b.size())
+            {
+                int id_b = map->get_id(cells_b[cells_b.size() - i].first, cells_b[cells_b.size() - i].second);
+                Move new_move = Move(b.t1+dist(b.id1, id_b), b.t1+dist(b.id1, id_b)+dist(b.id2, id_b), id_b, b.id2);
+                bool has_col = true;
+                for(auto &c:moves_a)
+                    if(!check_conflict(new_move, c))
+                    {
+                        has_col = false;
+                        break;
+                    }
+                if(has_col)
+                {
+                    Constraint newA = get_constraint(0, a, new_move);
+                    if(newA.t2 >= initA.t2)
+                        moves_b.push_back(new_move);
+                }
+            }
+            i++;
         }
-        i++;
-    }*/
-    //out.close();
-    //std::cout<<moves_a.size()<<" "<<moves_b.size()<<" moves found\n";
+    }
     return {moves_a, moves_b};
 }
-
-/*std::pair<std::vector<Move>,std::vector<Move>> CBS::find_similar_actions(const Task &task, Conflict conflict, std::list<Constraint> consA, std::list<Constraint> consB)
-{
-    std::vector<Move> moves_a = {conflict.move1};
-    std::vector<Move> moves_b = {conflict.move2};
-    Constraint constraintA(get_constraint(conflict.agent1, conflict.move1, conflict.move2));
-    Constraint constraintB(get_constraint(conflict.agent2, conflict.move2, conflict.move1));
-    double durA = constraintA.t2 - constraintA.t1;
-    double durB = constraintB.t2 - constraintB.t1;
-    while(true)
-    {
-        consA.push_back(constraintA);
-        consB.push_back(constraintB);
-        sPath pathA = sPath(aa_planner.find_path(task.get_agent(conflict.agent1), *map, consA, aa_h_values[conflict.agent1]));
-        sPath pathB = sPath(aa_planner.find_path(task.get_agent(conflict.agent2), *map, consA, aa_h_values[conflict.agent2]));
-        Conflict new_c = check_paths(pathA, pathB);
-        //std::cout<<new_c.move1.id1<<" "<<new_c.move1.id2<<" vs "<<new_c.move2.id1<<" "<<new_c.move2.id2<<"\n";
-        if(new_c.agent1 >= 0)
-        {
-            Move new_move = new_c.move1;
-            bool has_col = true;
-            Constraint con;
-            double least_durA(durA), least_durB(durB);
-            for(auto c:moves_b)
-                if(!check_conflict(new_move, c))
-                {
-                    has_col = false;
-                    break;
-                }
-                else
-                {
-                    con = get_constraint(0, new_move, c);
-                    least_durA = std::fmin(least_durA, con.t2 - con.t1);
-                }
-            if(has_col && least_durA > durA/2)
-                moves_a.push_back(new_move);
-            new_move = new_c.move2;
-            has_col = true;
-            for(auto c:moves_a)
-                if(!check_conflict(new_move, c))
-                {
-                    has_col = false;
-                    break;
-                }
-                else
-                {
-                    con = get_constraint(0, new_move, c);
-                }
-            if(has_col && con.t2 - con.t1 > durB/2)
-                moves_b.push_back(new_move);
-            constraintA = Constraint(conflict.agent1, 0, CN_INFINITY, new_c.move1.id1, new_c.move1.id2);
-            constraintB = Constraint(conflict.agent2, 0, CN_INFINITY, new_c.move2.id1, new_c.move2.id2);
-        }
-        else
-            break;
-    }
-    return {moves_a, moves_b};
-}*/
-
