@@ -34,6 +34,8 @@ bool Task::get_task(const char *FileName, int k)
         a.goal_j = agent->DoubleAttribute(CNS_TAG_GOAL_J);
         a.goal_id = agent->IntAttribute(CNS_TAG_GOAL_ID);
         a.id = int(agents.size());
+        //a.starts = {Node(a.start_id, 0, 0, a.start_i, a.start_j, nullptr, 0, CN_INFINITY)};
+        //a.goals = {Node(a.goal_id, 0, 0, a.goal_i, a.goal_j, nullptr, 0, CN_INFINITY)};
         agents[a.id] = a;
         if(int(agents.size()) == k)
             break;

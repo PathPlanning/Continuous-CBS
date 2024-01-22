@@ -8,10 +8,7 @@ bool CBS::init_root(const Map &map, const Task &task)
     for(int id:task.get_ids())
     {
         Agent agent = task.get_agent(id);
-        if(config.connectdness > 0)
-            path = planner.find_path(agent, map, {}, h_values);
-        else
-            path = aa_planner.find_path(agent, map, {}, *aa_h_values);
+        path = aa_planner.find_path(agent, map, {}, *aa_h_values);
         if(path.cost < 0)
             return false;
         //std::cout<<path.agentID<<" "<<path.cost<<" "<<path.nodes.front().id<<" "<<path.nodes.back().id<<"\n";
@@ -24,42 +21,11 @@ bool CBS::init_root(const Map &map, const Task &task)
     root.id = 0;
     root.id_str = "0";
     auto conflicts = get_all_conflicts(root.paths, -1);
+    for(const Conflict& conflict: conflicts)
+        root.conflicts.push_back(conflict);
     root.conflicts_num = conflicts.size();
-
-    for(auto conflict: conflicts)
-    {
-        //std::cout<<conflict.agent1<<" "<<conflict.agent2<<"    "<<config.use_cardinal<<" conflict\n";
-        if(!config.use_cardinal)
-            root.conflicts.push_back(conflict);
-        else
-        {
-            sPath pathA, pathB;
-            if(config.connectdness > 0)
-            {
-                pathA = planner.find_path(task.get_agent(conflict.agent1), map, {get_constraint(conflict.agent1, conflict.move1, conflict.move2)}, h_values);
-                pathB = planner.find_path(task.get_agent(conflict.agent2), map, {get_constraint(conflict.agent2, conflict.move2, conflict.move1)}, h_values);
-            }
-            else
-            {
-                pathA = aa_planner.check_all_paths(task.get_agent(conflict.agent1), map, {get_constraint(conflict.agent1, conflict.move1, conflict.move2)}, *aa_h_values);
-                pathB = aa_planner.check_all_paths(task.get_agent(conflict.agent2), map, {get_constraint(conflict.agent2, conflict.move2, conflict.move1)}, *aa_h_values);
-            }
-            //conflict.path1 = pathA;
-            //conflict.path2 = pathB;
-            if(pathA.cost > root.paths[conflict.agent1].cost && pathB.cost > root.paths[conflict.agent2].cost)
-            {
-                conflict.overcost = std::min(pathA.cost - root.paths[conflict.agent1].cost, pathB.cost - root.paths[conflict.agent2].cost);
-                root.cardinal_conflicts.push_back(conflict);
-            }
-            else if(pathA.cost > root.paths[conflict.agent1].cost || pathB.cost > root.paths[conflict.agent2].cost)
-                root.semicard_conflicts.push_back(conflict);
-            else
-                root.conflicts.push_back(conflict);
-        }
-    }
-    //std::cout<<conflicts.size()<<" init conflicts\n";
     solution.init_cost = root.cost;
-    solution.initial_conflicts = conflicts.size();
+    solution.initial_conflicts = root.conflicts_num;
     all_nodes.push_back(root);
     tree->add_node(&all_nodes.back());
     return true;
@@ -230,87 +196,6 @@ Constraint CBS::get_wait_constraint(int agent, Move move1, Move move2)
     return Constraint(agent, interval.first, interval.second, move1.id1, move1.id2);
 }
 
-double CBS::get_h(const std::list<Conflict> &conflicts, const std::map<int, double> &base_costs = {})
-{
-    optimization::Simplex simplex("simplex");
-    std::map<int, int> colliding_agents;
-    for(auto c: conflicts)
-    {
-        colliding_agents.insert({c.agent1, colliding_agents.size()});
-        colliding_agents.insert({c.agent2, colliding_agents.size()});
-    }
-
-    pilal::Matrix coefficients(conflicts.size()+base_costs.size(), base_costs.size(), 0);
-    std::vector<double> overcosts(conflicts.size()+base_costs.size());
-    int i(0);
-    for(auto c:conflicts)
-    {
-        coefficients.at(i, colliding_agents.at(c.agent1)) = 1;
-        coefficients.at(i, colliding_agents.at(c.agent2)) = 1;
-        overcosts[i] = c.overcost;
-        i++;
-    }
-    for(auto c:base_costs)
-    {
-         coefficients.at(i, c.first) = 1;
-         overcosts[i] = c.second;
-         i++;
-    }
-    simplex.set_problem(coefficients, overcosts);
-    simplex.solve();
-    simplex.print_solution();
-    return simplex.get_solution();
-}
-
-double CBS::get_hl_heuristic(const std::list<Conflict> &conflicts)
-{
-    if(conflicts.empty() || config.hlh_type == 0)
-        return 0;
-    else if (config.hlh_type == 1)
-    {
-        optimization::Simplex simplex("simplex");
-        std::map<int, int> colliding_agents;
-        for(auto c: conflicts)
-        {
-            colliding_agents.insert({c.agent1, colliding_agents.size()});
-            colliding_agents.insert({c.agent2, colliding_agents.size()});
-        }
-
-        pilal::Matrix coefficients(conflicts.size(), colliding_agents.size(), 0);
-        std::vector<double> overcosts(conflicts.size());
-        int i(0);
-        for(auto c:conflicts)
-        {
-            coefficients.at(i, colliding_agents.at(c.agent1)) = 1;
-            coefficients.at(i, colliding_agents.at(c.agent2)) = 1;
-            overcosts[i] = c.overcost;
-            i++;
-        }
-        simplex.set_problem(coefficients, overcosts);
-        simplex.solve();
-        return simplex.get_solution();
-    }
-    else
-    {
-        double h_value(0);
-        std::vector<std::tuple<double, int, int>> values;
-        values.reserve(conflicts.size());
-        std::set<int> used;
-        for(auto c:conflicts)
-            values.push_back(std::make_tuple(c.overcost, c.agent1, c.agent2));
-        std::sort(values.begin(), values.end(), std::greater<std::tuple<double, int, int>>());
-        for(auto v: values)
-        {
-            if(used.find(get<1>(v)) != used.end() || used.find(get<2>(v)) != used.end())
-                continue;
-            h_value += get<0>(v);
-            used.insert(get<1>(v));
-            used.insert(get<2>(v));
-        }
-        return h_value;
-    }
-}
-
 Constraint CBS::get_constraint(int agent, Move move1, Move move2)
 {
     if(move1.id1 == move1.id2)
@@ -374,23 +259,6 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg,
     config.connectdness = -1;
     aa_h_values = &pheuristic;
     this->map = &map;
-    if(config.connectdness > 0)
-    {
-        h_values.init(map.get_size(), task.get_agents_size());
-        for(int i = 0; i < int(task.get_agents_size()); i++)
-        {
-            Agent agent = task.get_agent(i);
-            h_values.count(map, agent);
-        }
-    }
-    else //any-angle case
-    {
-        /*auto t1 = std::chrono::high_resolution_clock::now();
-        aa_h_values.init(map.get_width(), map.get_height());
-        aa_h_values.count(map);
-        auto t2 = std::chrono::high_resolution_clock::now();
-        std::cout<<"time spent for h_values: "<<(t2-t1).count()*1e-9<<"\n";*/
-    }
     auto t = std::chrono::high_resolution_clock::now();
     int cardinal_solved = 0, semicardinal_solved = 0;
     if(!this->init_root(map, task))
@@ -400,7 +268,7 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg,
     CBS_Node *goal;
     int expanded(1);
     double time(0);
-    while (true)
+    while(true)
     {
         goal = expand(tree, task);
         if(goal != nullptr)
@@ -434,23 +302,6 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg,
     solution.cardinal_solved = cardinal_solved;
     solution.semicardinal_solved = semicardinal_solved;
     return solution;
-}
-
-bool CBS::check_positive_constraints(std::list<Multiconstraint> constraints, Multiconstraint constraint)
-{
-    std::list<Multiconstraint> positives;
-    for(auto c: constraints)
-        if(c.positive && c.agent == constraint.agent)
-            positives.push_back(c);
-
-    /*for(auto p: positives)
-    {
-        if(p.id1 == constraint.id1 && p.id2 == constraint.id2 && p.t1 - CN_EPSILON < constraint.t1 && p.t2 + CN_EPSILON > constraint.t2) // agent needs to perform two equal actions simultaneously => it's impossible
-            return false;
-        if(p.id1 == constraint.id1 && p.id2 == constraint.id2 && constraint.t1 - CN_EPSILON < p.t1 && constraint.t2 + CN_EPSILON > p.t2)
-            return false;
-    }*/
-    return true;
 }
 
 bool CBS::validate_constraints(std::list<Multiconstraint> constraints, int agent)
@@ -496,8 +347,6 @@ void CBS::find_new_conflicts(const Map &map, const Task &task, CBS_Node &node, s
     node.conflicts = conflictsA;
     for(auto n:new_conflicts)
         node.conflicts.push_back(n);
-    node.cardinal_conflicts.clear();
-    node.semicard_conflicts.clear();
     node.conflicts_num = node.conflicts.size();
     return;
 }
@@ -673,16 +522,10 @@ CBS_Node* CBS::expand(CBS_Tree *tree, const Task &task)
     auto node = *parent;
     node.cost -= node.h;
     parent->conflicts.clear();
-    parent->cardinal_conflicts.clear();
-    parent->semicard_conflicts.clear();
     auto paths = get_paths(&node, task.get_ids());
-    auto time_now = std::chrono::high_resolution_clock::now();
     auto conflicts = node.conflicts;
-    auto cardinal_conflicts = node.cardinal_conflicts;
-    auto semicard_conflicts = node.semicard_conflicts;
 
-    Conflict conflict;
-    if(conflicts.empty() && semicard_conflicts.empty() && cardinal_conflicts.empty())
+    if(conflicts.empty())
     {
         /*std::cout<<node.id<<' '<<node.cost<<" "<<node.conflicts_num<<" "<<node.total_cons<<" GOAL\n";
         for(auto p:paths)
@@ -691,18 +534,7 @@ CBS_Node* CBS::expand(CBS_Tree *tree, const Task &task)
         return parent; //i.e. no conflicts => solution found
     }
     tree->pop_front();
-    if(!cardinal_conflicts.empty())
-    {
-        conflict = get_conflict(cardinal_conflicts);
-        //cardinal_solved++;
-    }
-    else if(!semicard_conflicts.empty())
-    {
-        conflict = get_conflict(semicard_conflicts);
-        //semicardinal_solved++;
-    }
-    else
-        conflict = get_conflict(conflicts);
+    Conflict conflict = get_conflict(conflicts);
     //std::cout<<"conflict "<<conflict.move1.id1 <<" "<<conflict.move1.t1<<" "<<conflict.move1.id2<<" "<<conflict.move1.t2<<" vs "<<conflict.move2.id1 <<" "<<conflict.move2.t1<<" "<<conflict.move2.id2<<" "<<conflict.move2.t2<<"\n";
     auto constraintsA = get_constraints(&node, conflict.agent1);
     auto constraintsB = get_constraints(&node, conflict.agent2);
@@ -728,113 +560,69 @@ CBS_Node* CBS::expand(CBS_Tree *tree, const Task &task)
     constraintsB.push_back(multiconstraintB);
 
     sPath pathA;
-    /*if(config.connectdness > 0)
-        pathA = planner.find_path(task.get_agent(conflict.agent1), *map, constraintsA, h_values);
-    else*/
-        pathA = aa_planner.check_all_paths(task.get_agent(conflict.agent1), *map, constraintsA, *aa_h_values, parent->id);
+    pathA = aa_planner.check_all_paths(task.get_agent(conflict.agent1), *map, constraintsA, *aa_h_values, parent->id);
     low_level_searches++;
     low_level_expanded += pathA.expanded;
-    sPath pathB;
-    /*if(config.connectdness > 0)
-        pathB = planner.find_path(task.get_agent(conflict.agent2), *map, constraintsB, h_values);
-    else*/
-        pathB = aa_planner.check_all_paths(task.get_agent(conflict.agent2), *map, constraintsB, *aa_h_values);
 
+    sPath pathB;
+    pathB = aa_planner.check_all_paths(task.get_agent(conflict.agent2), *map, constraintsB, *aa_h_values);
     low_level_searches++;
     low_level_expanded += pathB.expanded;
-    //std::cout<<constraintB.agent<<" "<<constraintB.id1<<" "<<constraintB.t1<<" "<<constraintB.id2<<" "<<constraintB.t2<<" new c\n";
-    //std::cout<<tree->get_size()+1<<" "<<pathB.agentID<<" "<<pathB.expanded<<" "<<pathB.cost<<" expanded\n";
 
     std::map<int, sPath> pathsA; pathsA[pathA.agentID] = pathA;
     CBS_Node right(pathsA, parent, multiconstraintA, node.cost + pathA.cost - get_cost(node, conflict.agent1), 0, node.total_cons + multiconstraintA.constraints.size());
     std::map<int, sPath> pathsB; pathsB[pathB.agentID] = pathB;
     CBS_Node left(pathsB, parent, multiconstraintB, node.cost + pathB.cost - get_cost(node, conflict.agent2), 0, node.total_cons + multiconstraintB.constraints.size());
     Multiconstraint positive;
-    bool inserted = false;
-    bool left_ok = true, right_ok = true;
     if(config.use_disjoint_splitting)
     {
         int agent1positives(0), agent2positives(0);
-        for(auto c: constraintsA)
+        for(const auto &c: constraintsA)
             if(c.positive)
                 agent1positives++;
-        for(auto c: constraintsB)
+        for(const auto &c: constraintsB)
             if(c.positive)
                 agent2positives++;
-        if(conflict.move1.id1 != conflict.move1.id2 && agent2positives > agent1positives && pathA.cost > 0)
+        if(agent2positives > agent1positives && conflict.move1.id1 != conflict.move1.id2 && pathA.cost > 0)
         {
             positive = multiconstraintA;
             positive.positive = true;
-            //if(check_positive_constraints(constraintsA, positive))
-            {
-                left.positive_constraint = positive;
-                left.total_cons += positive.constraints.size();
-                constraintsB.push_back(left.positive_constraint);
-                inserted = true;
-                //std::cout<<"added positive to "<<positive.agent<<"\n\n";
-            }
-            //else
-            //    right_ok = false;
+            left.positive_constraint = positive;
+            left.total_cons += positive.constraints.size();
+            constraintsB.push_back(left.positive_constraint);
         }
-        if(conflict.move2.id1 != conflict.move2.id2 && !inserted && pathB.cost > 0)
+        else if(conflict.move2.id1 != conflict.move2.id2 && pathB.cost > 0)
         {
             positive = multiconstraintB;
             positive.positive = true;
-            //if(check_positive_constraints(constraintsB, positive))
-            {
-                right.positive_constraint = positive;
-                right.total_cons += positive.constraints.size();
-                constraintsA.push_back(right.positive_constraint);
-                inserted = true;
-            }
-            //else
-            //    left_ok = false;
+            right.positive_constraint = positive;
+            right.total_cons += positive.constraints.size();
+            constraintsA.push_back(right.positive_constraint);
         }
-        if(conflict.move1.id1 != conflict.move1.id2 && !inserted && pathA.cost > 0)
+        else if(conflict.move1.id1 != conflict.move1.id2 && pathA.cost > 0)
         {
             positive = multiconstraintA;
             positive.positive = true;
-            //if(check_positive_constraints(constraintsA, positive))
-            {
-                inserted = true;
-                left.positive_constraint = positive;
-                left.total_cons += positive.constraints.size();
-                constraintsB.push_back(left.positive_constraint);
-            }
-            //else
-            //    right_ok = false;
+            left.positive_constraint = positive;
+            left.total_cons += positive.constraints.size();
+            constraintsB.push_back(left.positive_constraint);
         }
     }
-    right.id_str = node.id_str + "0";
-    left.id_str = node.id_str + "1";
-    right.id = tree->get_size();
-    left.id = tree->get_size()+1;
-
-    if(right_ok && pathA.cost > 0)// && validate_constraints(constraintsA, pathA.agentID))
+    if(pathA.cost > 0)
     {
+        right.id = all_nodes.size();
+        right.id_str = node.id_str + "0";
         find_new_conflicts(*map, task, right, paths, pathA, conflicts);
-        if(right.cost > 0)
-        {
-            right.h = get_hl_heuristic(right.cardinal_conflicts);
-            right.cost += right.h;
-            right.id = all_nodes.size();
-            all_nodes.push_back(right);
-            //validate_cons(&right, task);
-            tree->add_node(&all_nodes.back());
-        }
+        all_nodes.push_back(right);
+        tree->add_node(&all_nodes.back());
     }
-    if(left_ok && pathB.cost > 0)// && validate_constraints(constraintsB, pathB.agentID))
+    if(pathB.cost > 0)
     {
+        left.id = all_nodes.size();
+        left.id_str = node.id_str + "1";
         find_new_conflicts(*map, task, left, paths, pathB, conflicts);
-        if(left.cost > 0)
-        {
-            left.h = get_hl_heuristic(left.cardinal_conflicts);
-            left.cost += left.h;
-            left.id = all_nodes.size();
-            all_nodes.push_back(left);
-            //validate_cons(&left, task);
-            tree->add_node(&all_nodes.back());
-        }
+        all_nodes.push_back(left);
+        tree->add_node(&all_nodes.back());
     }
     return nullptr;
 }

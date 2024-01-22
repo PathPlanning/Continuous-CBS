@@ -5,11 +5,7 @@
 #include "map.h"
 #include "task.h"
 #include "config.h"
-#include "sipp.h"
-#include "heuristic.h"
-#include "simplex/simplex.h"
-#include "simplex/pilal.h"
-#include "TO-AA-SIPP/to_aa_sipp.h"
+#include "to_aa_sipp.h"
 class CBS
 {
 public:
@@ -21,8 +17,6 @@ public:
     bool check_positive_constraints(std::list<Multiconstraint> constraints, Multiconstraint constraint);
     Conflict check_paths(const sPath &pathA, const sPath &pathB);
     bool check_conflict(Move move1, Move move2);
-    double get_hl_heuristic(const std::list<Conflict> &conflicts);
-    double get_h(const std::list<Conflict> &conflicts, const std::map<int, double> &base_costs);
     std::vector<Conflict> get_all_conflicts(const std::map<int, sPath> &paths, int id);
     Constraint get_constraint(int agent, Move move1, Move move2);
     Constraint get_wait_constraint(int agent, Move move1, Move move2);
@@ -36,10 +30,8 @@ public:
     double dist(int id1, int id2);
     Conflict get_conflict(std::list<Conflict> &conflicts);
     CBS_Tree *tree;
-    SIPP planner;
     TO_AA_SIPP aa_planner;
     Solution solution;
-    Heuristic h_values;
     PHeuristic* aa_h_values;
     Config config;
     const Map* map;

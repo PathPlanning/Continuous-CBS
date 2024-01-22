@@ -166,7 +166,6 @@ struct Constraint
 {
     int agent;
     double t1, t2; // prohibited to start moving from (i1, j1) to (i2, j2) during interval (t1, t2)
-    //double i1, j1, i2, j2; // in case of node constraint i1==i2, j1==j2.
     int id1, id2;
     bool positive;
     Constraint(int _agent = -1, double _t1 = -1, double _t2 = -1, int _id1 = -1, int _id2 = -1, bool _positive = false)
@@ -194,7 +193,6 @@ struct Multiconstraint
 struct Move
 {
     double t1, t2; // t2 is required for wait action
-    //double i1, j1, i2, j2; // in case of wait action i1==i2, j1==j2
     int id1, id2;
     Move(double _t1 = -1, double _t2 = -1, int _id1 = -1, int _id2 = -1)
         : t1(_t1), t2(_t2), id1(_id1), id2(_id2) {}
@@ -217,7 +215,6 @@ struct Step
     int j;
     int id;
     double cost;
-    //Step(const Node& node): i(node.i), j(node.j), id(node.id), cost(node.g) {}
     Step(int _i = 0, int _j = 0, int _id = 0, double _cost = -1.0): i(_i), j(_j), id(_id), cost(_cost) {}
 };
 
@@ -227,7 +224,6 @@ struct Conflict
     double t;
     Move move1, move2;
     double overcost;
-    //sPath path1, path2;
     Conflict(int _agent1 = -1, int _agent2 = -1, Move _move1 = Move(), Move _move2 = Move(), double _t = CN_INFINITY)
         : agent1(_agent1), agent2(_agent2), t(_t), move1(_move1), move2(_move2) {overcost = 0;}
     bool operator < (const Conflict& other)
@@ -250,24 +246,18 @@ struct CBS_Node
     unsigned int total_cons;
     unsigned int low_level_expanded;
     std::list<Conflict> conflicts;
-    std::list<Conflict> semicard_conflicts;
-    std::list<Conflict> cardinal_conflicts;
     CBS_Node(std::map<int, sPath> _paths = {}, CBS_Node* _parent = nullptr, Multiconstraint _constraint = Multiconstraint(), double _cost = 0, int _conflicts_num = 0, int total_cons_ = 0)
         :paths(_paths), parent(_parent), constraint(_constraint), cost(_cost), conflicts_num(_conflicts_num), total_cons(total_cons_)
     {
         low_level_expanded = 0;
         h = 0;
         conflicts.clear();
-        semicard_conflicts.clear();
-        cardinal_conflicts.clear();
     }
     ~CBS_Node()
     {
         parent = nullptr;
         paths.clear();
         conflicts.clear();
-        semicard_conflicts.clear();
-        cardinal_conflicts.clear();
     }
 
 };
@@ -294,7 +284,6 @@ struct id{};
 typedef multi_index_container<
         Open_Elem,
         indexed_by<
-                    //ordered_non_unique<tag<cost>, BOOST_MULTI_INDEX_MEMBER(Open_Elem, double, cost)>,
                     ordered_non_unique<composite_key<Open_Elem, BOOST_MULTI_INDEX_MEMBER(Open_Elem, double, cost), BOOST_MULTI_INDEX_MEMBER(Open_Elem, unsigned int, conflicts_num), BOOST_MULTI_INDEX_MEMBER(Open_Elem, unsigned int, cons_num), BOOST_MULTI_INDEX_MEMBER(Open_Elem, int, id)>,
                     composite_key_compare<std::less<double>, std::less<int>, std::greater<int>, std::greater<int>>>,
                     hashed_unique<tag<id>, BOOST_MULTI_INDEX_MEMBER(Open_Elem, int, id)>
@@ -335,19 +324,9 @@ typedef multi_index_container<
         Focal_Elem,
         indexed_by<
             ordered_non_unique<tag<conflicts_num>, identity<Focal_Elem>>,
-            //ordered_non_unique<tag<constraints_num>, BOOST_MULTI_INDEX_MEMBER(Focal_Elem, int, constraints)>,
             hashed_unique<tag<id>, BOOST_MULTI_INDEX_MEMBER(Focal_Elem, int, id)>
         >
 > Focal_container;
-
-typedef multi_index_container<
-        Node,
-        indexed_by<
-                    //ordered_non_unique<tag<cost>, BOOST_MULTI_INDEX_MEMBER(Open_Elem, double, cost)>,
-                    ordered_non_unique<BOOST_MULTI_INDEX_MEMBER(Node, double, g)>,
-                    hashed_non_unique<BOOST_MULTI_INDEX_MEMBER(Node, int, id)>
-        >
-> Open_List;
 
 class CBS_Tree
 {
@@ -378,7 +357,6 @@ public:
     {
         container.insert(Open_Elem(node, node->id, node->cost, node->total_cons, node->conflicts_num));
         open_size++;
-        //std::cout<<"add CT node "<<node.id<<" "<<node.cost<<" "<<node.h<<" \n";
         if(focal_weight > 1.0)
             if(container.get<0>().begin()->cost*focal_weight > node->cost)
                 focal.insert(Focal_Elem(node->id, node->conflicts_num, node->total_cons, node->cost));
