@@ -1,10 +1,8 @@
 <?xml version="1.0" ?>
 <root>
 	<algorithm>
-		<use_cardinal>true</use_cardinal>
 		<use_disjoint_splitting>true</use_disjoint_splitting>
-		<hlh_type>2</hlh_type>
-		<connectedness>3</connectedness>
+		<mc_type>2</mc_type>
 		<focal_weight>1.0</focal_weight>
 		<agent_size>0.353553</agent_size>
 		<timelimit>30</timelimit>
