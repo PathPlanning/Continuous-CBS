@@ -1,3 +1,5 @@
+[![Build Status](https://github.com/PathPlanning/Continuous-CBS/actions/workflows/build.yml/badge.svg?branch=AA-CCBS)](https://github.com/PathPlanning/Continuous-CBS/actions/workflows/build.yml)
+
 # AA-CCBS
 CCBS is a modification of the Conflict Based Search (CBS) algorithm, that supports actions (both move or wait) of arbitrary duration. CCBS is different from CBS in the way how conflicts and constraints are defined. To handle CCBS constraints the low-level search is inspired by Safe Interval Path Planning (SIPP) algorithm. More info about CCBS can be found at [IJCAI19 paper](https://www.ijcai.org/Proceedings/2019/0006.pdf).
 
