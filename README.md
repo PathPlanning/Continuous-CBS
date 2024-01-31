@@ -1,3 +1,5 @@
+[![Build Status](https://github.com/PathPlanning/Continuous-CBS/actions/workflows/build.yml/badge.svg)](https://github.com/PathPlanning/Continuous-CBS/actions/workflows/build.yml)
+
 # Continuous-CBS
 Continuous CBS (CCBS) is a modification of the Conflict Based Search (CBS) algorithm, that supports actions (both move or wait) of arbitrary duration. CCBS is different from CBS in the way how conflicts and constraints are defined. To handle CCBS constraints the low-level search is inspired by Safe Interval Path Planning (SIPP) algorithm. More info about CCBS can be found at [IJCAI19 paper](https://www.ijcai.org/Proceedings/2019/0006.pdf).
 
@@ -74,5 +76,3 @@ The output file will be placed in the same folder as input files and, by default
 ```
 "initial_task_file_name.xml" -> "initial_task_file_name_log.xml"
 ```
-
-[![Build Status](https://travis-ci.org/PathPlanning/Continuous-CBS.svg?branch=master)](https://travis-ci.org/PathPlanning/Continuous-CBS)

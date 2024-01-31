@@ -1,0 +1,21 @@
+name: Build Status
+
+on:
+  push:
+    branches: [ "master", "AA-CCBS" ]
+  pull_request:
+    branches: [ "master", "AA-CCBS" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Boost Library
+        run: sudo apt-get install libboost-all-dev
+      - name: Build Project
+        run: |
+          mkdir build
+          cd build
+          cmake ..
+          make
