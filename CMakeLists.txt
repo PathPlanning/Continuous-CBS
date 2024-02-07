@@ -5,15 +5,12 @@ project(AA-CCBS LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -O3 -Wall -Wextra" )
+set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17" )
 set( CMAKE_EXE_LINKER_FLAGS "-static -static-libgcc -static-libstdc++" )
 
 set(Boost_USE_STATIC_LIBS OFF)
-find_package(Boost COMPONENTS multi_index)
-include_directories( "D:/boost_1_75_0" )
-include_directories( "." )
-
-include(GNUInstallDirs)
+find_package(Boost REQUIRED)
+include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 
 set( SOURCE_FILES
     main.cpp
@@ -40,7 +37,4 @@ set( HEADER_FILES
     to_aa_sipp.h)
 
 add_executable( AA-CCBS ${SOURCE_FILES} ${HEADER_FILES} )
-install(TARGETS AA-CCBS
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
+target_link_libraries(AA-CCBS ${Boost_LIBRARIES})

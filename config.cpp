@@ -7,7 +7,7 @@ Config::Config()
     focal_weight = CN_FOCAL_WEIGHT;
     precision = CN_PRECISION;
     use_disjoint_splitting = CN_USE_DS;
-    mc_type = 0;
+    mc_type = CN_MC_TYPE;
 }
 
 
@@ -17,7 +17,7 @@ void Config::getConfig(const char *fileName)
     XMLDocument doc;
     if (doc.LoadFile(fileName) != tinyxml2::XMLError::XML_SUCCESS)
     {
-        std::cout << "Error opening Config XML file!" << std::endl;
+        std::cout << "Warning! Cannot open Config XML file! All the settings are set to default values!" << std::endl;
         return;
     }
 

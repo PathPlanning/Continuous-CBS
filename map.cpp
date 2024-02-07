@@ -6,7 +6,7 @@ bool Map::get_map(const char* FileName)
     tinyxml2::XMLDocument doc;
     if (doc.LoadFile(FileName) != tinyxml2::XMLError::XML_SUCCESS)
     {
-        std::cout << "Error opening XML file!" << std::endl;
+        std::cout << "Error! Cannot open Map XML file!" << std::endl;
         return false;
     }
     root = doc.FirstChildElement(CNS_TAG_ROOT);
