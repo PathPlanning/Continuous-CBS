@@ -12,7 +12,7 @@ You should have received a copy of the GNU General Public License
 along with C++lex.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "variable.h"
+#include "simplex/variable.h"
 
 namespace optimization {
 

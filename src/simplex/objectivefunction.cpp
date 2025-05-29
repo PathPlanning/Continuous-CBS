@@ -12,8 +12,8 @@ You should have received a copy of the GNU General Public License
 along with C++lex.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "objectivefunction.h"
-#include "simplex.h"
+#include "simplex/objectivefunction.h"
+#include "simplex/simplex.h"
 
 // Using
 using pilal::Matrix;

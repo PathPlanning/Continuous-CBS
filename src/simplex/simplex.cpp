@@ -12,8 +12,8 @@ You should have received a copy of the GNU General Public License
 along with C++lex.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "simplex.h"
-#include "variable.h"       
+#include "simplex/simplex.h"
+#include "simplex/variable.h"
 #include <iostream>    
 #include <fstream>
 #include <cstdlib>
