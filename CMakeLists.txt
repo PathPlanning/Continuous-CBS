@@ -13,8 +13,10 @@ set( CMAKE_EXE_LINKER_FLAGS "-static -static-libgcc -static-libstdc++" )
 set( SOURCE_FILES 
      src/main.cpp  
 	src/config.cpp
+     src/collision.cpp
      src/tinyxml2.cpp
      src/xml_logger.cpp 
+     src/json_logger.cpp
      src/map.cpp 
      src/heuristic.cpp 
      src/sipp.cpp 
@@ -31,7 +33,9 @@ set( HEADER_FILES
      include/const.h  
      include/tinyxml2.h
 	include/config.h
+     include/collision.h
      include/xml_logger.h 
+     include/json_logger.h
      include/map.h 
      include/heuristic.h 
      include/sipp.h 

@@ -1,4 +1,7 @@
 #include "cbs.h"
+#include <iomanip>
+#include <cassert>
+#include <iostream>
 
 bool CBS::init_root(const Map &map, const Task &task)
 {
@@ -45,8 +48,11 @@ bool CBS::init_root(const Map &map, const Task &task)
     return true;
 }
 
-bool CBS::check_conflict(Move move1, Move move2)
-{
+bool CBS::check_conflict(Move move1, Move move2, double tolerance)
+{   
+    double r(2*config.agent_size);
+    //if (lt(move1.t2+r,move2.t1) || lt(move2.t2+r , move1.t1))
+    //    return false;
     double startTimeA(move1.t1), endTimeA(move1.t2), startTimeB(move2.t1), endTimeB(move2.t2);
     double m1i1(map->get_i(move1.id1)), m1i2(map->get_i(move1.id2)), m1j1(map->get_j(move1.id1)), m1j2(map->get_j(move1.id2));
     double m2i1(map->get_i(move2.id1)), m2i2(map->get_i(move2.id2)), m2j1(map->get_j(move2.id1)), m2j2(map->get_j(move2.id2));
@@ -56,15 +62,16 @@ bool CBS::check_conflict(Move move1, Move move2)
     Vector2D VB((m2i2 - m2i1)/(move2.t2 - move2.t1), (m2j2 - m2j1)/(move2.t2 - move2.t1));
     if(startTimeB > startTimeA)
     {
-        A += VA*(startTimeB-startTimeA);
+        double timeDiff = startTimeB - startTimeA;
+        A += VA*timeDiff;
         startTimeA = startTimeB;
     }
     else if(startTimeB < startTimeA)
     {
-        B += VB*(startTimeA - startTimeB);
+        double timeDiff = startTimeA - startTimeB;
+        B += VB*timeDiff;
         startTimeB = startTimeA;
     }
-    double r(2*CN_AGENT_SIZE);
     Vector2D w(B - A);
     double c(w*w - r*r);
     if(c < 0)
@@ -74,10 +81,12 @@ bool CBS::check_conflict(Move move1, Move move2)
     double a(v*v);
     double b(w*v);
     double dscr(b*b - a*c);
-    if(dscr - CN_EPSILON < 0)
+
+    if(dscr < tolerance)
         return false;
     double ctime = (b - sqrt(dscr))/a;
-    if(ctime > -CN_EPSILON && ctime < std::min(endTimeB,endTimeA) - startTimeA + CN_EPSILON)
+    double interval = std::min(endTimeB,endTimeA) - startTimeA;
+    if(ctime >= 0 && ctime < interval - tolerance)
         return true;
     return false;
 }
@@ -89,38 +98,74 @@ Constraint CBS::get_wait_constraint(int agent, Move move1, Move move2)
     std::pair<double,double> interval;
     Point point(i2,j2), p0(i0,j0), p1(i1,j1);
     int cls = point.classify(p0, p1);
-    double dist = fabs((i0 - i1)*j2 + (j1 - j0)*i2 + (j0*i1 - i0*j1))/sqrt(pow(i0 - i1, 2) + pow(j0 - j1, 2));
+    
+    // Calculate distance from point to line more robustly
+    double line_length_sq = (i0 - i1)*(i0 - i1) + (j0 - j1)*(j0 - j1);
+    double dist = 0.0;
+    if (line_length_sq > CN_EPSILON) {
+        dist = fabs((i0 - i1)*j2 + (j1 - j0)*i2 + (j0*i1 - i0*j1))/sqrt(line_length_sq);
+    } else {
+        // Degenerate case: line is a point
+        dist = sqrt((i0 - i2)*(i0 - i2) + (j0 - j2)*(j0 - j2));
+    }
+    
     double da = (i0 - i2)*(i0 - i2) + (j0 - j2)*(j0 - j2);
     double db = (i1 - i2)*(i1 - i2) + (j1 - j2)*(j1 - j2);
-    double ha = sqrt(da - dist*dist);
-    double size = sqrt(radius*radius - dist*dist);
+    
+    // Check if distance calculations are valid before taking square roots
+    double radius_sq = radius*radius;
+    double dist_sq = dist*dist;
+    
+    if (dist >= radius - CN_EPSILON) {
+        // Point is too far from the line segment - no collision possible
+        interval.first = move2.t1;
+        interval.second = move2.t1;
+        return Constraint(agent, interval.first, interval.second, move1.id1, move1.id2);
+    }
+    
+    double ha = 0.0, hb = 0.0, size = 0.0;
+    
+    // Calculate ha safely
+    if (da > dist_sq + CN_EPSILON) {
+        ha = sqrt(da - dist_sq);
+    }
+    
+    // Calculate hb safely  
+    if (db > dist_sq + CN_EPSILON) {
+        hb = sqrt(db - dist_sq);
+    }
+    
+    // Calculate size safely
+    if (radius_sq > dist_sq + CN_EPSILON) {
+        size = sqrt(radius_sq - dist_sq);
+    }
+    
     if(cls == 3)
     {
         interval.first = move2.t1;
-        interval.second = move2.t1 + (sqrt(radius*radius - dist*dist) - ha);
+        interval.second = move2.t1 + (size - ha);
     }
     else if(cls == 4)
     {
-        interval.first = move2.t2 - sqrt(radius*radius - dist*dist) + sqrt(db - dist*dist);
+        interval.first = move2.t2 - size + hb;
         interval.second = move2.t2;
     }
-    else if(da < radius*radius)
+    else if(da < radius_sq + CN_EPSILON)
     {
-        if(db < radius*radius)
+        if(db < radius_sq + CN_EPSILON)
         {
             interval.first = move2.t1;
             interval.second = move2.t2;
         }
         else
         {
-            double hb = sqrt(db - dist*dist);
             interval.first = move2.t1;
             interval.second = move2.t2 - hb + size;
         }
     }
     else
     {
-        if(db < radius*radius)
+        if(db < radius_sq + CN_EPSILON)
         {
             interval.first = move2.t1 + ha - size;
             interval.second = move2.t2;
@@ -131,7 +176,103 @@ Constraint CBS::get_wait_constraint(int agent, Move move1, Move move2)
             interval.second = move2.t1 + ha + size;
         }
     }
+    
+    // Ensure interval is valid
+    if (interval.first > interval.second) {
+        std::cerr << "Error: Invalid interval in get_wait_constraint - start time > end time" << std::endl;
+        std::cerr<<move1.id1<<"->"<<move1.id2<<" ("<<move1.t1<<","<<move1.t2<<") vs "<<move2.id1<<"->"<<move2.id2<<" ("<<move2.t1<<","<<move2.t2<<")"<<std::endl;
+        std::cerr<<std::fixed<<std::setprecision(10)<<interval.first<<" "<<interval.second<<std::endl;
+        assert(false);
+    }
+    
     return Constraint(agent, interval.first, interval.second, move1.id1, move1.id2);
+}
+
+Constraint CBS::get_move_vs_wait_constraint(int agent, Move moving_agent, Move waiting_agent)
+{
+    double radius = 2*config.agent_size;
+    double radius_sq = radius * radius;
+    
+    // Get positions
+    double moving_i1 = map->get_i(moving_agent.id1);
+    double moving_j1 = map->get_j(moving_agent.id1);
+    double moving_i2 = map->get_i(moving_agent.id2);
+    double moving_j2 = map->get_j(moving_agent.id2);
+    double wait_i = map->get_i(waiting_agent.id1);
+    double wait_j = map->get_j(waiting_agent.id1);
+    
+    // Calculate movement vector and duration
+    double duration = moving_agent.t2 - moving_agent.t1;
+    Vector2D start_pos(moving_i1, moving_j1);
+    Vector2D end_pos(moving_i2, moving_j2);
+    Vector2D wait_pos(wait_i, wait_j);
+    Vector2D velocity((moving_i2 - moving_i1)/duration, (moving_j2 - moving_j1)/duration);
+    
+    // Vector from moving agent start to waiting agent
+    Vector2D w = wait_pos - start_pos;
+    
+    // Check if moving agent path passes close enough to waiting agent
+    double a = velocity * velocity; // |velocity|^2
+    double b = -2.0 * (w * velocity); // -2 * dot(w, velocity)
+    double c = (w * w) - radius_sq; // |w|^2 - radius^2
+    
+    // Solve quadratic equation: a*t^2 + b*t + c = 0
+    // This gives us the times when distance = radius
+    
+    double discriminant = b*b - 4*a*c;
+    
+    // No collision if discriminant is negative
+    if (discriminant < 0) {
+        return Constraint(agent, moving_agent.t1, moving_agent.t1, moving_agent.id1, moving_agent.id2);
+    }
+    
+    double sqrt_discriminant = sqrt(discriminant);
+    double t1 = (-b - sqrt_discriminant) / (2*a); // Entry time (relative to start)
+    double t2 = (-b + sqrt_discriminant) / (2*a); // Exit time (relative to start)
+    
+    // Convert relative times to absolute times
+    double abs_t1 = moving_agent.t1 + t1;
+    double abs_t2 = moving_agent.t1 + t2;
+    
+    // Clamp to the movement interval
+    double interval_start = std::max(abs_t1, moving_agent.t1);
+    double interval_end = std::min(abs_t2, moving_agent.t2);
+    
+    // Check if collision interval overlaps with waiting agent's time
+    double wait_start = waiting_agent.t1;
+    double wait_end = (waiting_agent.t2 == CN_INFINITY) ? moving_agent.t2 + 1.0 : waiting_agent.t2;
+    
+    // Find intersection of collision interval with wait interval
+    double collision_start = std::max(interval_start, wait_start);
+    double collision_end = std::min(interval_end, wait_end);
+    
+    // If no valid collision interval, return empty constraint
+    if (collision_start >= collision_end - CN_EPSILON) {
+        return Constraint(agent, moving_agent.t1, moving_agent.t1, moving_agent.id1, moving_agent.id2);
+    }
+    
+    // Verify that the minimal distance is actually less than radius
+    double t_closest = -b / (2*a); // Time of closest approach (relative)
+    double abs_t_closest = moving_agent.t1 + t_closest;
+    
+    // Clamp closest approach time to movement interval
+    if (abs_t_closest < moving_agent.t1) abs_t_closest = moving_agent.t1;
+    if (abs_t_closest > moving_agent.t2) abs_t_closest = moving_agent.t2;
+    
+    // Calculate position at closest approach
+    double rel_t_closest = abs_t_closest - moving_agent.t1;
+    Vector2D pos_at_closest = start_pos + velocity * rel_t_closest;
+    Vector2D diff = wait_pos - pos_at_closest;
+    double min_dist_sq = diff * diff;
+    
+    // Only return constraint if actual collision occurs (distance < radius)
+    if (min_dist_sq >= radius_sq - CN_EPSILON) {
+        return Constraint(agent, moving_agent.t1, moving_agent.t1, moving_agent.id1, moving_agent.id2);
+    }
+    
+    // Return constraint that prevents the moving agent from starting too early
+    // The agent should wait until after the collision interval
+    return Constraint(agent, moving_agent.t1, collision_end, moving_agent.id1, moving_agent.id2);
 }
 
 double CBS::get_hl_heuristic(const std::list<Conflict> &conflicts)
@@ -187,15 +328,27 @@ Constraint CBS::get_constraint(int agent, Move move1, Move move2)
 {
     if(move1.id1 == move1.id2)
         return get_wait_constraint(agent, move1, move2);
+    
+    // Check if move2 is a wait action (stationary)
+    if(move2.id1 == move2.id2) {
+        if(move2.t2 == CN_INFINITY) // collision with wait in goal
+            return Constraint(agent, move1.t1, CN_INFINITY, move1.id1, move1.id2);
+        else
+            return get_move_vs_wait_constraint(agent, move1, move2);
+    }
+    
     double startTimeA(move1.t1), endTimeA(move1.t2);
     Vector2D A(map->get_i(move1.id1), map->get_j(move1.id1)), A2(map->get_i(move1.id2), map->get_j(move1.id2)),
              B(map->get_i(move2.id1), map->get_j(move2.id1)), B2(map->get_i(move2.id2), map->get_j(move2.id2));
-    if(move2.t2 == CN_INFINITY)
-        return Constraint(agent, move1.t1, CN_INFINITY, move1.id1, move1.id2);
+
+    double safe_start_time = collision.get_safe_start_time(A.i, A.j, A2.i, A2.j, B.i, B.j, B2.i, B2.j, config.agent_size, 1, startTimeA, move2.t1, 1e-9);
+    return Constraint(agent, startTimeA, safe_start_time, move1.id1, move1.id2);
+    /*binary search*/
+    /* left for debugging */
     double delta = move2.t2 - move1.t1;
-    while(delta > config.precision/2.0)
+    while(delta > 1e-10)//config.precision/2.0)
     {
-        if(check_conflict(move1, move2))
+        if(check_conflict(move1, move2, 1e-10))
         {
             move1.t1 += delta;
             move1.t2 += delta;
@@ -213,13 +366,22 @@ Constraint CBS::get_constraint(int agent, Move move1, Move move2)
         }
         delta /= 2.0;
     }
-    if(delta < config.precision/2.0 + CN_EPSILON && check_conflict(move1, move2))
+    if(delta < config.precision/2.0 + CN_EPSILON && check_conflict(move1, move2, 1e-10))
     {
         move1.t1 = fmin(move1.t1 + delta*2, move2.t2);
         move1.t2 = move1.t1 + endTimeA - startTimeA;
     }
-    return Constraint(agent, startTimeA, move1.t1, move1.id1, move1.id2);
+    if (fabs(safe_start_time - move1.t1) > 1e-5) {
+        std::cout << std::fixed << std::setprecision(10) << "safe_start_time: " << safe_start_time << " vs " << move1.t1 <<" "<<safe_start_time - move1.t1<< std::endl;
+        std::cout<<A.i<<", "<<A.j<<", "<<A2.i<<", "<<A2.j<<", "<<B.i<<", "<<B.j<<", "<<B2.i<<", "<<B2.j<<", "<<startTimeA<<", "<<move2.t1<<std::endl;
+        move1.t1 = startTimeA;
+        move1.t2 = endTimeA;
+        check_conflict(move1, move2, 1e-10);
+        assert(false);
+    }
+    return Constraint(agent, startTimeA, safe_start_time, move1.id1, move1.id2);
 }
+
 Conflict CBS::get_conflict(std::list<Conflict> &conflicts)
 {
     auto best_it = conflicts.begin();
@@ -271,17 +433,23 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
         auto parent = tree.get_front();
         node = *parent;
         node.cost -= node.h;
+        
+        // Get parent ID for logging
+        int parent_id = (node.parent != nullptr) ? node.parent->id : 0;
+        
         parent->conflicts.clear();
         parent->cardinal_conflicts.clear();
         parent->semicard_conflicts.clear();
         auto paths = get_paths(&node, task.get_agents_size());
-
+        
         auto time_now = std::chrono::high_resolution_clock::now();
         conflicts = node.conflicts;
         auto cardinal_conflicts = node.cardinal_conflicts;
         auto semicard_conflicts = node.semicard_conflicts;
         if(conflicts.empty() && semicard_conflicts.empty() && cardinal_conflicts.empty())
         {
+            // Log final expanding node with no conflicts
+            json_logger.log_expanding(node.id, parent_id, node.cost, paths, Conflict());
             break; //i.e. no conflicts => solution found
         }
         if(!cardinal_conflicts.empty())
@@ -296,6 +464,10 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
         }
         else
             conflict = get_conflict(conflicts);
+        
+        // Log expanding node with conflict
+        json_logger.log_expanding(node.id, parent_id, node.cost, paths, conflict);
+        
         time_spent = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - time_now);
         time += time_spent.count();
         expanded++;
@@ -328,6 +500,28 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
 
         CBS_Node right({pathA}, parent, constraintA, node.cost + pathA.cost - get_cost(node, conflict.agent1), 0, node.total_cons + 1);
         CBS_Node left({pathB}, parent, constraintB, node.cost + pathB.cost - get_cost(node, conflict.agent2), 0, node.total_cons + 1);
+        
+        // Set IDs for child nodes
+        right.id_str = node.id_str + "0";
+        left.id_str = node.id_str + "1";
+        right.id = id++;
+        left.id = id++;
+        
+        // Log generating nodes
+        if (pathA.cost > 0) {
+            std::list<Constraint> old_constraintsA = get_constraints(&node, conflict.agent1);
+            json_logger.log_generating(right.id, node.id, right.cost, 
+                                      paths[conflict.agent1], old_constraintsA, 
+                                      constraintA, pathA);
+        }
+        
+        if (pathB.cost > 0) {
+            std::list<Constraint> old_constraintsB = get_constraints(&node, conflict.agent2);
+            json_logger.log_generating(left.id, node.id, left.cost, 
+                                      paths[conflict.agent2], old_constraintsB, 
+                                      constraintB, pathB);
+        }
+        
         Constraint positive;
         bool inserted = false;
         bool left_ok = true, right_ok = true;
@@ -381,10 +575,6 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
                 //    right_ok = false;
             }
         }
-        right.id_str = node.id_str + "0";
-        left.id_str = node.id_str + "1";
-        right.id = id++;
-        left.id = id++;
         if(right_ok && pathA.cost > 0 && validate_constraints(constraintsA, pathA.agentID))
         {
             time_now = std::chrono::high_resolution_clock::now();
@@ -420,6 +610,11 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
     }
     while(tree.get_open_size() > 0);
     solution.paths = get_paths(&node, task.get_agents_size());
+    auto all_conflicts = get_all_conflicts(solution.paths, -1);
+    for(auto c: all_conflicts)
+    {
+        std::cout<<"WTF "<<c.agent1<<" "<<c.agent2<<" "<<std::fixed<<std::setprecision(10)<<c.move1.id1<<"->"<<c.move1.id2<<" ("<<c.move1.t1<<","<<c.move1.t2<<") vs "<<c.move2.id1<<"->"<<c.move2.id2<<" ("<<c.move2.t1<<","<<c.move2.t2<<")"<<std::endl;
+    }
     solution.flowtime = node.cost;
     solution.low_level_expansions = low_level_searches;
     solution.low_level_expanded = double(low_level_expanded)/std::max(low_level_searches, 1);
@@ -431,6 +626,11 @@ Solution CBS::find_solution(const Map &map, const Task &task, const Config &cfg)
     solution.check_time = time;
     solution.cardinal_solved = cardinal_solved;
     solution.semicardinal_solved = semicardinal_solved;
+
+    // Output JSON log
+    std::cout << "\n=== CBS Search Tree JSON Log ===" << std::endl;
+    json_logger.write_to_cout();
+    std::cout << "=== End JSON Log ===" << std::endl;
 
     return solution;
 }
@@ -612,19 +812,20 @@ Conflict CBS::check_paths(const sPath &pathA, const sPath &pathB)
         double dist = sqrt(pow(map->get_i(nodesA[a].id) - map->get_i(nodesB[b].id), 2) + pow(map->get_j(nodesA[a].id) - map->get_j(nodesB[b].id), 2)) - CN_EPSILON;
         if(a < nodesA.size() - 1 && b < nodesB.size() - 1) // if both agents have not reached their goals yet
         {
-            if(dist < (nodesA[a+1].g - nodesA[a].g) + (nodesB[b+1].g - nodesB[b].g) + CN_AGENT_SIZE*2)
+            if(dist < (nodesA[a+1].g - nodesA[a].g) + (nodesB[b+1].g - nodesB[b].g) + config.agent_size*2)
                 if(check_conflict(Move(nodesA[a], nodesA[a+1]), Move(nodesB[b], nodesB[b+1])))
                     return Conflict(pathA.agentID, pathB.agentID, Move(nodesA[a], nodesA[a+1]), Move(nodesB[b], nodesB[b+1]), std::min(nodesA[a].g, nodesB[b].g));
         }
         else if(a == nodesA.size() - 1) // if agent A has already reached the goal
         {
-            if(dist < (nodesB[b+1].g - nodesB[b].g) + CN_AGENT_SIZE*2)
+            if(dist < (nodesB[b+1].g - nodesB[b].g) + config.agent_size*2)
+
                 if(check_conflict(Move(nodesA[a].g, CN_INFINITY, nodesA[a].id, nodesA[a].id), Move(nodesB[b], nodesB[b+1])))
                     return Conflict(pathA.agentID, pathB.agentID, Move(nodesA[a].g, CN_INFINITY, nodesA[a].id, nodesA[a].id), Move(nodesB[b], nodesB[b+1]), std::min(nodesA[a].g, nodesB[b].g));
         }
         else if(b == nodesB.size() - 1) // if agent B has already reached the goal
         {
-            if(dist < (nodesA[a+1].g - nodesA[a].g) + CN_AGENT_SIZE*2)
+            if(dist < (nodesA[a+1].g - nodesA[a].g) + config.agent_size*2)
                 if(check_conflict(Move(nodesA[a], nodesA[a+1]), Move(nodesB[b].g, CN_INFINITY, nodesB[b].id, nodesB[b].id)))
                     return Conflict(pathA.agentID, pathB.agentID, Move(nodesA[a], nodesA[a+1]), Move(nodesB[b].g, CN_INFINITY, nodesB[b].id, nodesB[b].id), std::min(nodesA[a].g, nodesB[b].g));
         }
